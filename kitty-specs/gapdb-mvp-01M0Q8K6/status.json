@@ -1,7 +1,7 @@
 {
-  "event_count": 109,
-  "last_event_id": "01M0R4SZ1GJ2T3AV4D5PFP04PE",
-  "materialized_at": "2026-08-23T20:25:46.800600+00:00",
+  "event_count": 110,
+  "last_event_id": "01M0R4W99H87A6RW7CH77BWC13",
+  "materialized_at": "2026-08-23T20:27:02.833052+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -191,14 +191,14 @@
       }
     },
     "WP06": {
-      "actor": "user",
+      "actor": "codex-review-2",
       "agent": "",
       "agent_profile": "reviewer-renata",
       "agent_profile_version": "1.0",
-      "force_count": 3,
+      "force_count": 4,
       "lane": "planned",
-      "last_event_id": "01M0R4SZ1GJ2T3AV4D5PFP04PE",
-      "last_transition_at": "2026-08-23T20:25:46.800600+00:00",
+      "last_event_id": "01M0R4W99H87A6RW7CH77BWC13",
+      "last_transition_at": "2026-08-23T20:27:02.833052+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "Ready for review: bounded owner-only Unix server, typed Go client, daemon lifecycle, watch/error backpressure, recovery and black-box process coverage; full/race/static/security gates green"
