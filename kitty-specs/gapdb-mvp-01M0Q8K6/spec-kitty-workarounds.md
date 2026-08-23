@@ -256,3 +256,28 @@ operational record, not part of the Gapdb product contract.
 - **Impact:** the lane contains no net mission-metadata change and passed the
   transition validator; the known generated review-identity defect remains
   visible rather than being hidden by an invalid lane exception.
+
+## 2026-08-23 — Historical rejection artifact blocked repaired approval
+
+- **Surface:** WP01 repair-cycle approval transition.
+- **Symptom:** after independent re-review closed every finding, the transition
+  validator continued to treat the immutable historical
+  `review-cycle-2.md` rejection as the current verdict and refused approval.
+- **Recovery:** the reviewer used the command's explicit
+  `--skip-review-artifact-check` option only after recording complete fresh
+  approval evidence, including adversarial and deletion probes for all five
+  findings. The canonical lane transition is `approved` in commit `676b29c`.
+- **Impact:** status correctly records approval, but `tasks status` continues to
+  display the historical rejection as a stale verdict.
+
+## 2026-08-23 — Sync-state safe-commit dirties its own input
+
+- **Surface:** targeted safe-commit of `.kittify/sync-state.json`.
+- **Symptom:** committing the sync queue itself records the new local commit by
+  rewriting the same file after the commit, so the worktree becomes dirty
+  again. Repeating the operation is recursive and cannot produce a fixed point.
+- **Recovery:** commit sync-state only when another canonical bookkeeping
+  artifact must be reconciled; otherwise tolerate its generated post-commit
+  queue update until a later governed commit or final handoff.
+- **Impact:** no mission or product state is lost; a generated local-sync queue
+  entry remains uncommitted between governed operations.
