@@ -1,15 +1,4 @@
 ---
-affected_files: []
-cycle_number: 4
-mission_slug: gapdb-mvp-01M0Q8K6
-reproduction_command:
-reviewed_at: '2026-08-23T15:51:35Z'
-reviewer_agent: unknown
-verdict: rejected
-wp_id: WP02
----
-
----
 affected_files:
   - internal/persist/recovery.go
   - internal/protocol/envelope.go
