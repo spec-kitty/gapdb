@@ -1,59 +1,57 @@
 ---
 affected_files:
   - cmd/gapctl/command.go
-  - cmd/gapctl/data.go
-  - cmd/gapctl/offline.go
-  - internal/admin/recovery.go
   - tests/contract/cli/cli_test.go
-  - tests/contract/modelops/lifecycle_test.go
-  - docs/operations/configuration.md
-  - docs/operations/recovery.md
 cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
-reproduction_command: go test ./tests/contract/cli -run '^TestReviewerUnknownFormatCannotGrantOrApplyQuarantine$' -count=1
-reviewed_at: '2026-08-23T21:41:10Z'
+reproduction_command: gapctl --request-id inspect --request-id=again schema
+reviewed_at: '2026-08-23T22:02:38Z'
 reviewer_agent: reviewer-renata
 verdict: rejected
 wp_id: WP07
 ---
 
-# WP07 Independent Review
+# WP07 Independent Re-review
 
 Verdict: changes requested.
 
-## Blocking findings
+Repair commit reviewed: `404425378c7ef3a044819896a19836604bf5b311`.
 
-1. **Unsupported storage formats are incorrectly converted into destructive recovery authority.** A production-path probe changed only the active snapshot format version. Offline inspection correctly returned `UNKNOWN_FORMAT` with canonical safe actions `upgrade_gapdb`, `use_compatible_binary`, and `abort`. Nevertheless, `recover propose` exited 0 and emitted a quarantine proposal. Feeding that exact proposal to `recover apply` also exited 0, returned `operation_applied:true`, and moved the active snapshot to quarantine. `runOfflineCommand` proposes after every inspection error with complete evidence, and neither proposal creation nor apply rejects a finding whose stable safe actions do not authorize recovery. Fail closed in both propose and apply: only explicitly recoverable finding codes/actions may grant quarantine authority, and stale/self-consistent unsupported-format proposals must remain unusable. Add UNKNOWN_FORMAT, DATABASE_ID_MISMATCH, IO_ERROR, and other non-`recover_propose` findings to a zero-mutation matrix; delete either gate and the tests must fail.
+## Blocking finding
 
-2. **Offline envelopes violate the locked protocol operation names.** Protocol v1 requires offline CLI operations to use names prefixed by `offline_`, but the implementation emits CLI spellings: `inspect`, `verify`, `recover-propose`, and `recover-apply`. For example, `gapctl --db /definitely/not/a/gapdb inspect` returns an `IO_ERROR` envelope with `"operation":"inspect"`. Emit exact stable names such as `offline_inspect`, `offline_verify`, `offline_recover_propose`, and `offline_recover_apply` on every success and error path; update the model-only assertions and runbooks to treat these as the machine API.
+1. **Global parse errors can carry an operation name taken from an option value instead of the requested command.** `detectedMachineOperation` scans every argument without skipping global option values. The independent production-binary probe `gapctl --request-id inspect --request-id=again schema` correctly exits 2 for the duplicate flag, but emits `"operation":"offline_inspect"` even though the requested command is `schema`. Likewise, `gapctl --request-id verify --request-id=again status` emits `"operation":"verify"` instead of `status`. For a model-managed machine API, the operation field is correlation authority; silently attributing a parser error to an unrequested offline/destructive operation violates the requirement that every success and error use its exact stable operation name. Extract the command with an option-aware tokenizer even when global validation fails (or make the duplicate validator preserve command position), and never classify option values as commands. Add a pre-dial matrix in which values for `--request-id`, `--db`, `--socket`, `--deadline`, and `--output` equal command spellings while a duplicate/unknown global flag triggers the error; assert the actual requested operation on every result. The test must fail if value-skipping is removed.
 
-3. **Pre-registration watch failures are not terminal JSONL watch frames.** Invalid watch flags, missing/invalid targets, dial failures, and status failures call the unary `writeError` path. For example, invalid `--after-revision` and an unavailable socket each produce one generic object with no `stream`, `reason`, `database_id`, or `last_delivered_revision`. The contracted watch surface permits only flushed complete JSONL `started`, `event`, and one `ended` frame. Route every watch failure after JSONL selection through the terminal frame encoder with `stream:"ended"`, `reason:"error"`, the requested resume boundary, and the stable typed error; define the unavailable database-ID representation explicitly. Add local validation, target, dial, status, ahead, compacted, lagged, disconnect, deadline, and signal cases, asserting exactly one terminal and no trailing/partial line.
+## Original findings independently closed
 
-4. **Duplicate option rejection is bypassed by the standard parser's accepted single-dash spelling.** `rejectDuplicateFlags` examines only tokens beginning `--`, while Go's `flag` package accepts `-output`, `-socket`, `-key`, and every other declared option. `gapctl -output=json -output=json schema` exits 0, and mutation flags can therefore be repeated with last-value-wins behavior. This is ambiguous machine input and contradicts strict duplicate parsing. Either reject all unadvertised single-dash forms or include every accepted spelling in one duplicate detector before any file read or dial. Add global and command-level duplicate matrices for split and `=value` forms.
+- **Recovery authority: closed.** `ProposeQuarantine` derives the exact canonical action set and refuses every stable error definition that lacks `recover_propose`; `ApplyRecovery` rechecks the proposal ID/action set, takes the owner lock, re-inspects under that lock, and compares finding code, file, database ID, generation, full SHA-256, size, device, and inode before publication. A temporary reviewer matrix enumerated every non-authorized stable code and self-consistently mutated proposal ID, database ID, generation, action, finding, action list, file, digest, size, device, and inode. Every case failed and preserved both source and destination. The UNKNOWN_FORMAT production path remained read-only.
+- **Offline operation names: closed on ordinary success/error paths.** `offline_inspect`, `offline_verify`, `offline_recover_propose`, and `offline_recover_apply` are emitted by the production CLI and model-only lifecycle. The blocker above is a distinct pre-parse attribution defect.
+- **Watch terminal shape: closed.** Local validation, target, dial, status, ahead, compacted, lagged, disconnect, deadline, and signal paths use complete JSONL. Pre-registration failures emit exactly one `ok:false`, `stream:"ended"`, `reason:"error"` terminal with limits, last-delivered revision, and typed error; no unary frame is emitted.
+- **Strict long flags: closed.** Single-dash and over-dashed aliases are rejected, and split/equals duplicate long flags are rejected before file, stdin, or dial side effects.
 
-## Verified behavior
+## Additional verified behavior
 
-- The complete stable 41-code exit table maps exactly to exits 2–6.
-- Canonical base64, UTC expiry, batch unknown/duplicate fields, duplicate batch keys, bounded value/batch reads, explicit stdin selection, guarded online admin flags, absolute destinations, request IDs, revisions, acknowledgement mode, and durable-through evidence are implemented through production seams.
-- Existing scan/watch lag, ahead, disconnect, signal, custom daemon, live-owner, tampered proposal, relative destination, guarded admin, and model-lifecycle suites pass. These do not cover the blockers above; the model harness currently asserts the noncanonical offline names.
-- The implementation adds no CLI framework dependency, prompt, TTY detection, color, pager, or implicit stdin read.
+- Recovery apply remains guarded by exact action ID, database ID, manifest generation, destination validation, owner exclusion, and fresh artifact evidence. Tamper/stale/live-owner/relative-destination cases caused zero database-tree mutation.
+- Watch ahead, compaction, lag, disconnect, deadline, and SIGINT retain one terminal frame, stable nonzero exit class, and safe resume evidence. Broken-pipe behavior remains bounded and non-retrying.
+- The daemon readiness/signal ordering change installs signal handling before publishing readiness; existing real-process clean shutdown, restart, recovery, and ownership tests pass without durability regression. Startup still does not publish readiness before recovery and listener authority are complete.
+- No prompt, TTY detection, color, pager, implicit stdin, retry, or prose-dependent model step was introduced. The model-only lifecycle succeeds using stdout, exit classes, and safe actions.
+- The repair necessarily updates the previously approved WP05 recovery seam (`internal/admin`) to close destructive-authority findings and the WP06 daemon root to remove the readiness/signal race; this cross-WP ownership is explicit here. Approved WP06 commit `29c9136` remains an ancestor and its authority tests pass.
 
 ## Independent gates
 
 - Toolchain: `go1.26.7 linux/amd64`.
-- Focused `cmd/gapctl`, CLI contract, and model-operations tests passed x10 normally and under `-race`.
-- Full uncached `go test -count=1 ./...` and `go test -race -count=1 ./...` passed.
-- `go vet ./...`, `staticcheck ./...`, `govulncheck ./...` (`No vulnerabilities found`), `go mod verify`, `go mod tidy` with no diff, full `gofmt`, and `git diff --check` passed.
-- Fuzz passed: `FuzzDecodeSnapshotNeverPanics` for 5 seconds (506,843 executions) and `FuzzStorageDecoders` for 5 seconds (24,486 executions).
-- Temporary reviewer probes were removed; lane-g has no review code change.
+- Focused repair/CLI tests passed x10 normally and x3 under `-race`.
+- Full uncached `go test ./... -count=1` and `go test -race ./... -count=1` passed.
+- `go vet ./...`, `staticcheck ./...`, `govulncheck ./...` (`No vulnerabilities found`), `go mod verify`, `go mod tidy` with no diff, diff-scoped `gofmt`, and `git diff --check` passed.
+- Fuzz passed for 5 seconds each: `FuzzDecodeSnapshotNeverPanics` (439,989 executions) and `FuzzStorageDecoders` (26,412 executions).
+- Temporary reviewer tests were removed. The lane has no reviewer implementation changes; `.spec-kitty/` is the runtime-owned untracked invocation directory.
 
 ## Anti-pattern checklist
 
-1. Dead code: **PASS** — all new production CLI modules are called from the binary.
-2. Synthetic-fixture test: **PASS** — existing CLI tests invoke real binaries and daemon/admin paths, though required negative cases are missing.
+1. Dead code: **PASS** — new helpers and modules have production callers.
+2. Synthetic-fixture test: **PASS** — repair tests invoke real CLI binaries, daemon/client, and offline admin paths.
 3. Silent empty return: **PASS** — no relevant silent empty-return path exists.
-4. FR coverage: **FAIL** — FR-018 and FR-022 are incomplete because watch/offline machine shapes drift and unsupported formats can grant destructive authority.
-5. Frozen surface: **PASS** — no frozen mission artifact was modified.
-6. Locked decision: **FAIL** — `UNKNOWN_FORMAT` is guessed into a destructive quarantine workflow contrary to GAP-001/GAP-003 and its stable safe actions.
-7. Shared-file ownership: **PASS** — implementation changes are within WP07-owned CLI/docs/tests surfaces; any shared recovery-seam hardening must carry the required rationale.
-8. Production fragility: **FAIL** — ambiguous duplicate flags and noncanonical output shapes make model decisions depend on undocumented parser behavior.
+4. FR coverage: **FAIL** — FR-018's exact stable machine envelope is not covered for global parse errors whose option values equal command names.
+5. Frozen surface: **PASS** — no frozen mission artifact changed in the lane.
+6. Locked decision: **FAIL** — the locked exact operation field can name an unrequested operation.
+7. Shared-file ownership: **PASS** — necessary WP05/WP06 seam changes and their rationale/regression evidence are explicitly recorded above.
+8. Production fragility: **FAIL** — model correlation depends on incidental option values during parse failure.
