@@ -165,6 +165,7 @@ activated_agent_profiles:
 - implementer-ivan
 - planner-priti
 - reviewer-renata
+- researcher-robbie
 activated_mission_step_contracts:
 - implement
 - plan
@@ -1034,6 +1035,12 @@ catalog:
     summary: Work decomposition and delivery sequencing specialist
     source_path: ''
     local_path: _LIBRARY/agent_profile-planner-priti.md
+  - id: AGENT_PROFILE:researcher-robbie
+    kind: agent_profile
+    title: Researcher Robbie
+    summary: Domain knowledge acquisition and synthesis specialist
+    source_path: ''
+    local_path: _LIBRARY/agent_profile-researcher-robbie.md
   - id: AGENT_PROFILE:reviewer-renata
     kind: agent_profile
     title: Reviewer Renata
@@ -1048,5 +1055,5 @@ catalog:
     local_path: _LIBRARY/template-set-software-dev-default.md
 overrides: {}
 metadata:
-  generated_at: '2026-08-23T12:32:03Z'
+  generated_at: '2026-08-23T13:20:56Z'
   bundle_schema_version: 2

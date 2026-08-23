@@ -111,3 +111,40 @@ operational record, not part of the Gapdb product contract.
 - **Impact:** final task state is valid and fully committed. Branch protection was
   bypassed only for the required finalization command; project configuration was
   not weakened.
+
+## 2026-08-23 — Runtime required a DRG that charter status treated as optional
+
+- **Surface:** `spec-kitty next` charter preflight.
+- **Symptom:** charter context and prior planning commands loaded successfully,
+  but runtime advancement failed with `CHARTER_PREFLIGHT_FAILED` because the
+  synthesized DRG was missing.
+- **Recovery:** run the documented fresh-project
+  `spec-kitty charter synthesize` path. It materialized the minimal doctrine
+  provenance and synthesis manifest while retaining built-in doctrine fallback.
+- **Impact:** no governance rule changed; runtime preflight can now resolve its
+  required project doctrine root.
+
+## 2026-08-23 — New runtime ignored completed lifecycle events
+
+- **Surface:** first `spec-kitty next --result success` after synthesis.
+- **Symptom:** despite committed `SpecifyCompleted`, `PlanCompleted`, and
+  `TasksCompleted` canonical events, the new runtime run began at `discovery`.
+- **Recovery:** reconcile each already-completed phase against its committed
+  artifact instead of regenerating it. The newly enforced research CSV stubs
+  were created and populated with the official sources already used by the
+  plan, then the runtime phase was reported successful.
+- **Impact:** reviewed artifacts were preserved; runtime bookkeeping is being
+  advanced to the actual mission state.
+
+## 2026-08-23 — Built-in workflow referenced a non-activated built-in profile
+
+- **Surface:** software-dev runtime composition for `specify`.
+- **Symptom:** composition requested built-in profile `researcher-robbie`, which
+  exists in the installed doctrine catalog and projection manifest but was not
+  activated by the generated charter. Runtime failed with
+  `ProfileNotFoundError`.
+- **Recovery:** activate `researcher-robbie` through
+  `spec-kitty charter activate agent-profile researcher-robbie --resynthesize`.
+  The charter and minimal DRG were regenerated through supported commands.
+- **Impact:** no product scope changed; the workflow can resolve its own declared
+  research profile.
