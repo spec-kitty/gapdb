@@ -6,16 +6,16 @@ affected_files:
   - internal/engine/history_test.go
   - internal/engine/expiry.go
   - internal/engine/expiry_test.go
-cycle_number: 1
+cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
 reproduction_command: go test ./internal/engine -run '^TestReviewerWP04' -count=1
-reviewed_at: '2026-08-23T17:20:00Z'
+reviewed_at: '2026-08-23T17:14:25Z'
 reviewer_agent: reviewer-renata
 verdict: rejected
 wp_id: WP04
 ---
 
-# WP04 Review Cycle 1
+# WP04 Review Cycle 2
 
 ## Verdict
 
