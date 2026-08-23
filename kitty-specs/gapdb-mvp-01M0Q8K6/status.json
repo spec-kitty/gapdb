@@ -200,6 +200,9 @@
       "last_event_id": "01M0R2SQZT3H3TZVA98MTCXTFE",
       "last_transition_at": "2026-08-23T19:50:42.426867+00:00",
       "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: bounded owner-only Unix server, typed Go client, daemon lifecycle, watch/error backpressure, recovery and black-box process coverage; full/race/static/security gates green"
+      ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 2772430,

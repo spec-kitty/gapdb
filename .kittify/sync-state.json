@@ -3,14 +3,14 @@
   "pending_local_commits": [
     {
       "type": "LocalCommit",
-      "git_hash": "ea2540041e0992d1da663d44d2505bff71e88032",
+      "git_hash": "5e436a7bbf04a9cfa0c7cab6267e15aed175ac97",
       "mission_id": "gapdb-mvp-01M0Q8K6",
       "build_id": "2c7ead70-7e62-56bd-82a7-e0d21a616286",
       "changed_files": [
         "kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl",
         "kitty-specs/gapdb-mvp-01M0Q8K6/status.json"
       ],
-      "committed_at": "2026-08-23T19:20:25.619359+00:00"
+      "committed_at": "2026-08-23T19:50:42.945288+00:00"
     }
   ]
 }
