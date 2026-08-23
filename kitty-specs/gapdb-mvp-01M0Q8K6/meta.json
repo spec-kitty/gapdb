@@ -10,5 +10,7 @@
   "purpose_tldr": "gapdb mvp",
   "slug": "gapdb-mvp-01M0Q8K6",
   "target_branch": "main",
-  "topology": "single_branch"
+  "topology": "single_branch",
+  "vcs": "git",
+  "vcs_locked_at": "2026-08-23T13:22:51.790108+00:00"
 }

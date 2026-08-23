@@ -20,6 +20,9 @@ requirement_refs:
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this mission were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: kitty/mission-gapdb-mvp-01M0Q8K6
+base_commit: 4c559e0c4db0e09c42b2310c4f1439d8e31f694e
+created_at: '2026-08-23T13:22:51.819246+00:00'
 subtasks:
 - T001
 - T002
@@ -27,6 +30,7 @@ subtasks:
 - T004
 - T005
 phase: Phase 1 - Foundation
+agent: codex
 history:
 - timestamp: '2026-08-23T12:58:27Z'
   agent: codex
@@ -58,7 +62,6 @@ owned_files:
 - tests/compatibility/protocol/**
 - docs/evidence/dependencies/x-sys.md
 role: implementer
-agent: codex
 tags: []
 tracker_refs: []
 ---
