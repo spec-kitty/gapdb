@@ -1,7 +1,7 @@
 {
-  "event_count": 145,
-  "last_event_id": "01M0RB7NSYMFV640SJQC20R0E2",
-  "materialized_at": "2026-08-23T22:18:07.550282+00:00",
+  "event_count": 147,
+  "last_event_id": "01M0RB7S7SZBJF2JMWAVG2E5CV",
+  "materialized_at": "2026-08-23T22:18:11.064870+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -12,9 +12,9 @@
     "claimed": 0,
     "done": 0,
     "for_review": 0,
-    "in_progress": 0,
+    "in_progress": 1,
     "in_review": 0,
-    "planned": 3
+    "planned": 2
   },
   "work_packages": {
     "WP01": {
@@ -228,22 +228,23 @@
       }
     },
     "WP07": {
-      "actor": "codex-review-3",
-      "agent": "",
-      "agent_profile": "reviewer-renata",
+      "actor": "codex",
+      "agent": "codex-review-3",
+      "agent_profile": "implementer-ivan",
       "agent_profile_version": "1.0",
       "force_count": 6,
-      "lane": "planned",
-      "last_event_id": "01M0RB7NSYMFV640SJQC20R0E2",
-      "last_transition_at": "2026-08-23T22:18:07.550282+00:00",
+      "lane": "in_progress",
+      "last_event_id": "01M0RB7S7SZBJF2JMWAVG2E5CV",
+      "last_transition_at": "2026-08-23T22:18:11.064870+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "Deterministic gapctl data/admin/offline/recovery JSON API, flushed terminal watch JSONL, model-only lifecycle/runbooks, full/race/static/security/fuzz gates green. Forced only across main-only governance/status ancestry; lane preserves approved WP06 product lineage.",
         "Reattach canonical WP07 review after runtime URI failure",
-        "Reattach canonical operation-attribution review after runtime URI failure"
+        "Reattach canonical operation-attribution review after runtime URI failure",
+        "Reattach canonical malformed-split review after runtime URI failure"
       ],
       "provider": "__resolved_provider_absent__",
-      "role": "reviewer",
+      "role": "implementer",
       "shell_pid": 0,
       "shell_pid_created_at": "1787486609.27",
       "subtasks": {
