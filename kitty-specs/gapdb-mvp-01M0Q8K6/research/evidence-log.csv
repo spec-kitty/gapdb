@@ -1,0 +1,5 @@
+timestamp,source_type,citation,key_finding,confidence,notes
+2026-08-23T12:45:00Z,web,"Go project (2026). net package documentation.","The standard library supports Unix domain socket listeners and connections required by the local-only transport.",high,"Supports Decision 1 and Decision 2."
+2026-08-23T12:45:00Z,web,"Go project (2026). os package documentation.","File Sync and atomic same-directory rename primitives are available for the explicit durability pipeline.",high,"Supports Decisions 1 4 and 6; directory-sync behavior remains an implementation responsibility."
+2026-08-23T12:45:00Z,web,"Go project (2026). hash/crc32 package documentation.","The standard library provides the Castagnoli CRC32C table and checksum implementation used by framed metadata and WAL entries.",high,"Supports Decision 3."
+2026-08-23T12:45:00Z,web,"Go project (2026). golang.org/x/sys/unix package documentation.","The Go-maintained Unix syscall wrapper exposes advisory Flock needed for kernel-released single ownership.",high,"Supports Decision 1; WP01 records the separate license and vulnerability review before import."

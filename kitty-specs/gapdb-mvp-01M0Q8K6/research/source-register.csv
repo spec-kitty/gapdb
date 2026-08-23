@@ -1,0 +1,5 @@
+source_id,citation,url,accessed_date,relevance,status
+SRC-001,"Go project (2026). net package documentation.",https://pkg.go.dev/net,2026-08-23,high,reviewed
+SRC-002,"Go project (2026). os package documentation.",https://pkg.go.dev/os,2026-08-23,high,reviewed
+SRC-003,"Go project (2026). hash/crc32 package documentation.",https://pkg.go.dev/hash/crc32,2026-08-23,high,reviewed
+SRC-004,"Go project (2026). golang.org/x/sys/unix package documentation.",https://pkg.go.dev/golang.org/x/sys/unix,2026-08-23,high,reviewed
