@@ -295,3 +295,27 @@ operational record, not part of the Gapdb product contract.
   `01M0QJBSKPV56S2W3BBC2ADR3G`.
 - **Impact:** no product commit was skipped or duplicated; lane isolation was
   preserved while the canonical status authority advanced WP02 to review.
+
+## 2026-08-23 — Committed cycle-3 feedback was unreadable through runtime URI
+
+- **Surface:** WP02 fix-mode claim after its second independent rejection.
+- **Symptom:** the committed and locally readable `review-cycle-3.md` was
+  reported missing through the internal
+  `review-cycle://gapdb-mvp-01M0Q8K6/WP02-persistence-wal-and-recovery/...`
+  reference, so fix-mode prompt generation refused to start.
+- **Recovery:** follow the emitted recovery instruction exactly: repeat the
+  `planned -> planned` transition with the absolute canonical feedback path and
+  `--force`, then retry the implement claim. Fix mode resolved cycle 3 on retry.
+- **Impact:** no feedback was changed or regenerated; the existing reviewed and
+  committed artifact is now attached to the runtime cycle.
+
+## 2026-08-23 — Feedback reattachment prepended duplicate frontmatter
+
+- **Surface:** the WP02 cycle-3 `planned -> planned` recovery transition.
+- **Symptom:** after successfully attaching the existing feedback, `move-task`
+  prepended a second YAML frontmatter block with empty affected files and an
+  unknown reviewer to the already canonical feedback document.
+- **Recovery:** remove only the newly prepended duplicate block, preserving the
+  original reviewer-authored frontmatter and body byte-for-byte otherwise.
+- **Impact:** fix mode had already resolved the correct cycle; cleanup restores
+  one valid metadata carrier for later audit.
