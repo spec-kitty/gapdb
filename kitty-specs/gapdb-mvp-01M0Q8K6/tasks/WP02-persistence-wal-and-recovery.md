@@ -26,7 +26,7 @@ history:
 - timestamp: '2026-08-23T12:58:27Z'
   agent: codex
   action: Prompt generated via /spec-kitty.tasks
-agent_profile: ''
+agent_profile: implementer-ivan
 authoritative_surface: internal/persist/
 create_intent:
 - internal/faultfs/fs.go
@@ -53,7 +53,8 @@ owned_files:
 - internal/persist/recovery.go
 - internal/persist/recovery_test.go
 - tests/compatibility/storage/**
-role: ''
+role: implementer
+agent: codex
 tags: []
 tracker_refs: []
 ---
@@ -64,8 +65,8 @@ tracker_refs: []
 
 Use the `/ad-hoc-profile-load` skill to load the agent profile specified in the frontmatter, and behave according to its guidance before parsing the rest of this prompt.
 
-- **Profile**: `agent_profile`
-- **Role**: `role`
+- **Profile**: `implementer-ivan`
+- **Role**: `implementer`
 - **Agent/tool**: `codex`
 
 If no profile is specified, run `spec-kitty agent profile list` and select the best match for this work package's `task_type` and `authoritative_surface`.
