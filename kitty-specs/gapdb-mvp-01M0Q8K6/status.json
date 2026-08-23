@@ -243,7 +243,8 @@
         "Reattach canonical operation-attribution review after runtime URI failure",
         "Reattach canonical malformed-split review after runtime URI failure",
         "Reattach canonical early request-ID review after runtime URI failure",
-        "Reattach canonical request-ID contract review after runtime URI failure"
+        "Reattach canonical request-ID contract review after runtime URI failure",
+        "Review passed after fresh repair-cycle evidence; --force overrides only the verified governance-only main ancestry guard (mission base and approved WP06 are ancestors), and artifact override ignores only the historical review-cycle-2 rejection. Locked request-ID protocol verified byte-for-byte for all valid UTF-8 <=256 including control characters in unary and watch one-line framing; invalid, oversized, duplicate, malformed, missing, and ambiguous IDs are omitted. Prior recovery authority, offline naming, watch framing, strict flag, operation attribution, and daemon findings remain closed. Focused x10 and race repetitions, real-binary/modelops, deletion probe, full normal/race/vet/staticcheck/govulncheck/module/format/diff and fuzz gates pass."
       ],
       "provider": "__resolved_provider_absent__",
       "review": {
