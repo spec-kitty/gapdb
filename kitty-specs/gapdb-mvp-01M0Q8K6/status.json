@@ -130,6 +130,9 @@
       "last_event_id": "01M0QSDCGE3GX40QJNAKZ98QNE",
       "last_transition_at": "2026-08-23T17:06:40.270637+00:00",
       "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: deterministic durable expiry, stable bounded scans, whole-commit history, and gap-free bounded watches; full Go 1.26.7 gates green. Forced only across verified main-only governance/status history."
+      ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 2772430,
