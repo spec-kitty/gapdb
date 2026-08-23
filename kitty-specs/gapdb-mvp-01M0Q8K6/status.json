@@ -205,7 +205,8 @@
         "Reattach canonical cycle-2 review feedback after runtime URI resolution failure",
         "Reattach canonical directory-authority review after runtime URI failure",
         "Reattach canonical socket-parent review after runtime URI failure",
-        "Pre-acquired custom socket-parent capability before runtime hooks; three-seam replacement matrix, custom restart, procfs no-fallback, full/race/static/security/fuzz gates green. Forced only across main-only governance/status ancestry; lane preserves approved WP05/WP06 product lineage."
+        "Pre-acquired custom socket-parent capability before runtime hooks; three-seam replacement matrix, custom restart, procfs no-fallback, full/race/static/security/fuzz gates green. Forced only across main-only governance/status ancestry; lane preserves approved WP05/WP06 product lineage.",
+        "Fresh independent approval overrides only the historical rejection artifact and the verified governance-only main ancestry guard (mission base remains an ancestor of lane-f). Repair 29c9136 acquires custom socket-parent capability before openRuntime and retains it through cleanup/bind/readiness/close; three-seam x10/race swaps preserve replacement state and reject readiness, custom dial/close/restart and procfs fail-closed behavior pass, and 50-cycle normal/race failure paths have balanced FDs. Prior findings remain closed. Full normal/race/static/security/module/format/fuzz gates pass on Go 1.26.7."
       ],
       "provider": "__resolved_provider_absent__",
       "review": {
