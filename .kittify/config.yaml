@@ -1,0 +1,13 @@
+project:
+  uuid: 65833a9d-42a5-405d-9939-40daf293fb0a
+  slug: gap
+  node_id: 752e6076aa27
+  build_id: 2c7ead70-7e62-56bd-82a7-e0d21a616286
+vcs:
+  type: git
+agents:
+  available:
+  - codex
+  auto_commit: true
+  lint_on_edit: false
+charter: .kittify/charter/charter.yaml

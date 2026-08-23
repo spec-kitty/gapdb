@@ -1,0 +1,192 @@
+{
+  "entries": [
+    {
+      "file_hash": "4cd7213bc6a9819bdf79eecf1f6edec8d2270adb015354a876e78b2fbafb1c53",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/architect-alphonso.toml",
+      "profile_urn": "agent_profile:architect-alphonso",
+      "projection_version": 1,
+      "source_hash": "b72c3652d738616f1abe683c415542a2a813b95787fe4f610885d7237b706f02",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/architect-alphonso.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "b8337afc8eacac4f5588beaaad095ba23ff992c8d906e52acbb1910175bbe8a4",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/curator-carla.toml",
+      "profile_urn": "agent_profile:curator-carla",
+      "projection_version": 1,
+      "source_hash": "cc6b08c3391abe890ff2dc35b4d7faa3e6cb6566cacedfab2eb570fa9248cb0a",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/curator-carla.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "cab310d01e3ef69eb99ee59ab2e215e6ffbf1ebb1fd3f693c48f258729e16d51",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/debugger-debbie.toml",
+      "profile_urn": "agent_profile:debugger-debbie",
+      "projection_version": 1,
+      "source_hash": "2aa4396ee2d102e49d4a0f076ed7d1a7a8e3d2da8c9d1dc6cc32843db780e7ac",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/debugger-debbie.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "75ab35480af1d42370bceeeab2940c4f5d41a671f7734d5125875776e6fd9f2c",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/designer-dagmar.toml",
+      "profile_urn": "agent_profile:designer-dagmar",
+      "projection_version": 1,
+      "source_hash": "1428bfeabd57c8cd636d72d587b11799b84a0f4d325aea24880f6d8e4083f6c7",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/designer-dagmar.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "e1ebd710966ecca5502014f8d98d389718931865eb944a296298dbf19a4e3d73",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/doctrine-daphne.toml",
+      "profile_urn": "agent_profile:doctrine-daphne",
+      "projection_version": 1,
+      "source_hash": "107eedbb3242501c618e1c21472cba1ce1bc7a447117f338b7831fcc6a5bda0c",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/doctrine-daphne.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "3282d0824e984598e1df245de16f9e2da79f334daacbaa6b271b382a431bc6da",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/frontend-freddy.toml",
+      "profile_urn": "agent_profile:frontend-freddy",
+      "projection_version": 1,
+      "source_hash": "34ac5858ed5ec97689ccc122141cbd5012a17d9bec689c5b1da6d7b6446306e7",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/frontend-freddy.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "fd2d1cbad1a9edc7e5d72c6a0752a9eacf05d0d6f6c7a6bf08a2a07febdd41a9",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/generic-agent.toml",
+      "profile_urn": "agent_profile:generic-agent",
+      "projection_version": 1,
+      "source_hash": "0e01f1d14aa139e2611966b14d8087d0bb87cbcd1cdc969287e453e2c871a449",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/generic-agent.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "bc4c87d70d394ea98c62dfce2b6c8c980904982cd4b95da79ab185572b4f4888",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/implementer-ivan.toml",
+      "profile_urn": "agent_profile:implementer-ivan",
+      "projection_version": 1,
+      "source_hash": "5878a5a84f9f306a91d0895498984fb3523f1f12ba05cf7bb57576093f5722e5",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/implementer-ivan.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "e6b5c65f759deff40c1f63b949d5b87d07e7053005084b661ab2442a6ab00d27",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/java-jenny.toml",
+      "profile_urn": "agent_profile:java-jenny",
+      "projection_version": 1,
+      "source_hash": "eb2f00630f317db097e62665d7204e876a5cf6a5481cf35f762501e866066937",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/java-jenny.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "77cd80e44a601ce5dffae12784063008d255ccdb652021152e24d15115286398",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/node-norris.toml",
+      "profile_urn": "agent_profile:node-norris",
+      "projection_version": 1,
+      "source_hash": "f34314aa278528c127e19a44ec49daae17850366cf2e980d62bf751088e7ea4b",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/node-norris.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "173fc9d49296d4ea685ee4eb22a6f917ce84bf308bf68306a58741c435609db9",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/paula-patterns.toml",
+      "profile_urn": "agent_profile:paula-patterns",
+      "projection_version": 1,
+      "source_hash": "9e9a7e204fe7f3c66a120e2c36d9e9cf519e489f88982cce1c65114fde527899",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/paula-patterns.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "e1cbf503b7739fca8c572ae907011058987e25bbf25253ba954f4be5601595a6",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/planner-priti.toml",
+      "profile_urn": "agent_profile:planner-priti",
+      "projection_version": 1,
+      "source_hash": "a75a69594825554fc286c1c7a6d7a70707ba6a0724686cf6f3546a33b92a4a87",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/planner-priti.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "73552420ba82a229a73af6ad532791783db176cef231fe24c913779d0079976c",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/python-pedro.toml",
+      "profile_urn": "agent_profile:python-pedro",
+      "projection_version": 1,
+      "source_hash": "41eb7c5fdfa1831426b6c511049b20f1bc504a36407e7ab308eb2e7f4b479e1e",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/python-pedro.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "f705973b38cb24e25f16b34af1f3e57045010acaba4e8ffcbd37330fc044874e",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/randy-reducer.toml",
+      "profile_urn": "agent_profile:randy-reducer",
+      "projection_version": 1,
+      "source_hash": "495904c9937c2977f2696a6c0e5ce38903a6b3eb85600953882c81caaea7d098",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/randy-reducer.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "9a66cd32aa8f349c3f3559cb98af4ed6de26ddda7cd9a871ccb9718b3cf5a993",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/researcher-robbie.toml",
+      "profile_urn": "agent_profile:researcher-robbie",
+      "projection_version": 1,
+      "source_hash": "35db0efc2dcf050a4fe337f474998150c4ab47dc2a28b8a1e4cbaab6c64cff5d",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/researcher-robbie.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "56bb17ef4d86a1f402eb7db75b66fb625b9ea096b3c26d09f39c6686aa2e0573",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/retrospective-facilitator.toml",
+      "profile_urn": "agent_profile:retrospective-facilitator",
+      "projection_version": 1,
+      "source_hash": "de4e2d2c641e773180e84ea3bc60beb937e66aadcef6012db392289a088275c4",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/retrospective-facilitator.agent.yaml",
+      "tool_key": "codex"
+    },
+    {
+      "file_hash": "080b6b3b3117c31049b82e20c38640ea3b978f3faf7ae5f7b86314f0a05a5d0c",
+      "format": "codex-agent",
+      "output_path": ".codex/agents/reviewer-renata.toml",
+      "profile_urn": "agent_profile:reviewer-renata",
+      "projection_version": 1,
+      "source_hash": "60a0e3ffda3219a3bb253ba5205dade96da4151c9e6b81edcbb9dc57708e0081",
+      "source_layer": "builtin",
+      "source_path": "/home/lynn/.local/share/uv/tools/spec-kitty-cli/lib/python3.11/site-packages/doctrine/agent_profiles/built-in/reviewer-renata.agent.yaml",
+      "tool_key": "codex"
+    }
+  ],
+  "schema_version": 1
+}

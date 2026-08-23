@@ -1,0 +1,14 @@
+{
+  "created_at": "2026-08-23T12:12:44.459800+00:00",
+  "flattened": false,
+  "friendly_name": "gapdb mvp",
+  "mission_id": "01M0Q8K61B2MWHKZEXB0HA5E03",
+  "mission_number": null,
+  "mission_slug": "gapdb-mvp-01M0Q8K6",
+  "mission_type": "software-dev",
+  "purpose_context": "This mission advances gapdb mvp on main so stakeholders can track the work from mission creation onward.",
+  "purpose_tldr": "gapdb mvp",
+  "slug": "gapdb-mvp-01M0Q8K6",
+  "target_branch": "main",
+  "topology": "single_branch"
+}
