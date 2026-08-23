@@ -173,3 +173,17 @@ operational record, not part of the Gapdb product contract.
   and reviewer to check for vocabulary drift explicitly.
 - **Impact:** no terminology rule was bypassed and no new term was inferred from
   the missing section.
+
+## 2026-08-23 — Pre-review gate referenced an absent charter section
+
+- **Surface:** WP01 implement pre-review instructions.
+- **Symptom:** the runtime prompt required
+  `spec-kitty charter context --include section:code-review-checklist`, but the
+  command returned
+  `No charter section found for selector 'section:code-review-checklist'`.
+- **Recovery:** apply the prompt's explicit definition of done, reviewer
+  guidance, and charter directives directly; retain the independent review
+  boundary and require the reviewer to inspect the entire WP01 diff and execute
+  the prescribed verification suite.
+- **Impact:** the missing generated selector did not relax the package gate or
+  substitute implementer self-approval for independent review.
