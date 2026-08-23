@@ -204,7 +204,8 @@
         "Ready for review: bounded owner-only Unix server, typed Go client, daemon lifecycle, watch/error backpressure, recovery and black-box process coverage; full/race/static/security gates green",
         "Reattach canonical cycle-2 review feedback after runtime URI resolution failure",
         "Reattach canonical directory-authority review after runtime URI failure",
-        "Reattach canonical socket-parent review after runtime URI failure"
+        "Reattach canonical socket-parent review after runtime URI failure",
+        "Pre-acquired custom socket-parent capability before runtime hooks; three-seam replacement matrix, custom restart, procfs no-fallback, full/race/static/security/fuzz gates green. Forced only across main-only governance/status ancestry; lane preserves approved WP05/WP06 product lineage."
       ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
