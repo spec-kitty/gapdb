@@ -242,3 +242,17 @@ operational record, not part of the Gapdb product contract.
   checked the diff against the committed spec, contracts, data model, and
   charter vocabulary.
 - **Impact:** no vocabulary change escaped review.
+
+## 2026-08-23 — Fix-mode prompt required a lane change that transition forbids
+
+- **Surface:** WP01 fix-mode handoff and `move-task --to for_review`.
+- **Symptom:** the implement prompt required reviewer profile/role frontmatter
+  to be committed on the lane, while the transition validator rejected any
+  committed `kitty-specs/` change on that lane.
+- **Recovery:** commit the product repair first, then add a narrowly scoped
+  follow-up lane commit removing only the transient two-line reviewer metadata
+  diff. Preserve reviewer assignment through the review claim and independent
+  agent context instead of WP frontmatter.
+- **Impact:** the lane contains no net mission-metadata change and passed the
+  transition validator; the known generated review-identity defect remains
+  visible rather than being hidden by an invalid lane exception.
