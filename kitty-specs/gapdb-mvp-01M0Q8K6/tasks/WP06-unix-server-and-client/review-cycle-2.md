@@ -1,47 +1,53 @@
 ---
 affected_files:
   - internal/server/owner.go
-  - internal/server/handler.go
-  - gapdb/client.go
+  - internal/protocol/envelope.go
+  - internal/server/server.go
+  - gapdb/client_codec.go
 cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
-reproduction_command: go test ./gapdb ./internal/server -run '^TestReviewer' -count=1
-reviewed_at: '2026-08-23T20:05:00Z'
+reproduction_command: go test ./internal/server -run '^TestReviewer(LockedReplacementDoesNotImpersonateHeldLock|WatchRegistrationErrorRemainsStructured)$' -count=1
+reviewed_at: '2026-08-23T20:32:00Z'
 reviewer_agent: reviewer-renata
 verdict: rejected
 wp_id: WP06
 ---
 
-# WP06 Cycle 1 Review
+# WP06 Repair Re-review
 
 Verdict: changes requested.
 
+## Closure evidence
+
+- An ordinary existing `LOCK` is now changed to effective `0600`; symlink and unlocked replacement-inode probes fail before socket creation.
+- The public client now rejects the prior unknown nested field, duplicate field, noncanonical base64, non-UTC time, invalid presence/EOF, result/event, and code-specific error fixtures. The canonical decoder gained matching explicit result DTO schemas.
+- Pending watches are reserved before dialing. The delayed-start/`Client.Close` race passes repeatedly and under `-race`; Close cancels the pending connection and no successful watch is returned.
+- Inspection and online-admin handlers now emit explicit lowercase DTOs with status ownership evidence, config source/ceilings, verification files, snapshot authority, compaction sync, and backup checksum/byte/verification fields. The raw/client admin matrix passes.
+- Existing server/client/daemon, ownership, permissions, recovery refusal, watch, accepted-work drain, remote-error, and real-process restart tests remain green.
+
 ## Blocking findings
 
-1. **An existing `LOCK` file is not forced to effective mode `0600`.** `AcquireOwner` opens the path with mode `0600`, but that argument does not change an existing inode's permissions, and server startup never calls `Chmod` or verifies the lock mode. An independent production-path probe pre-created `LOCK` as `0666`, called `server.Open`, and observed it still at `0666` while the owner was ready. Enforce and verify owner-only mode on the exact opened lock inode before publishing readiness; reject safely if that cannot be done. Add existing-file modes and identity-swap coverage, not only fresh creation.
+1. **A different locked replacement inode can impersonate the runtime-held `LOCK`.** `secureHeldLock` reopens the current pathname and interprets `EWOULDBLOCK` from `flock` as proof that it is the owner runtime's inode. That proves only that *someone* holds the replacement open-file description. The independent hook renamed the genuinely held `LOCK`, created a new `LOCK`, acquired a separate exclusive flock on that replacement, and let startup continue. `server.Open` accepted it and reached readiness while its `OwnerLease` retained the unlinked original inode. Bind mode and identity validation to the descriptor acquired by `AcquireOwner`: `fchmod` and `fstat` that exact descriptor, compare it to an anchored `fstatat(..., AT_SYMLINK_NOFOLLOW)` path identity immediately before socket publication, and reject every mismatch regardless of whether the named replacement is itself locked. Add this locked-replacement probe normally, 10x, and under `-race`.
 
-2. **The public client fails open on noncanonical server responses.** `readResponse` uses ordinary `encoding/json` for the outer envelope and every typed `Result`; it therefore accepts duplicate fields, invalid-UTF-8 replacement, unknown nested result fields, and operation-inappropriate presence. Record/event base64, UTC/time, null/omitted, enum, ordering, cursor, acknowledgement, and code-specific error-evidence validation are materially weaker than the canonical `internal/protocol.DecodeResponse`. The independent fixture returned a `get` result containing an unknown nested field and the client accepted it as a successful record. Implement one deletion-sensitive client-side v1 decoder with the same strict schema, EOF, duplicate-key, UTF-8, canonical padded-base64, canonical UTC, presence, result/event/watch, and all 41 error-evidence rules. Adversarially compare acceptance/rejection against the canonical codec for every response shape.
-
-3. **`Client.Close` can race watch registration and return a live watch after the client is closed.** A fixture delayed the `stream:"started"` frame until after `Close`; because `Watch` stores its cancel function only after that frame, `Close` observed no watch, returned, and `Watch` then registered and returned a usable stream. Make closed-state transition and watch admission atomic, close the in-flight connection on rejection, and guarantee no watch can become live after `Close` returns. Cover the race repeatedly under `-race`, including Close before dial, after write, before started, and during terminal delivery.
-
-4. **Online administrative response shapes do not implement the locked protocol.** The production `create_snapshot` response was `{"Revision":1,"RecordCount":1,"Duration":...}`. It omits the required lowercase `revision`, `filename`, `checksum`, and `new_wal_start` fields. The handler passes internal engine/admin structs directly to a generic response path, and `DecodeResponse` does not schema-check admin results. `status`, `stats`, `describe_config`, `compact`, and `backup` are likewise thinner than their documented owner/counter/source/ceiling/directory-sync/checksum/byte-count/verification contracts. Define explicit wire/result DTOs for every inspection and online-admin operation, strictly validate them in both codecs, preserve post-apply evidence, and add raw-socket plus public-client contract tables for every field.
+2. **Valid watch registration failures are no longer encodable/decodable and become ambiguous transport failures.** Both new decoders require `stream` on every `operation:"watch"` response, but `handleWatch` still calls `writeFailure` for registration errors without setting `stream:"ended"`. `protocol.EncodeResponse` rejects that response, sends no frame, and `Client.Watch("", after_revision=1)` against an empty real server returns `*TransportError{Ambiguous:true}` instead of structured `REVISION_AHEAD`. Choose and enforce one locked shape—prefer a terminal `stream:"ended"`, `ok:false`, `reason:"error"`, common error envelope—and make server, canonical codec, client codec, and golden fixtures agree for `REVISION_AHEAD`, `REVISION_COMPACTED`, `SERVER_BUSY`, and every other pre-start watch error. The public client must preserve the typed remote error rather than report response-loss ambiguity.
 
 ## Independent evidence
 
 - Go toolchain: `go1.26.7 linux/amd64`.
+- Passed focused 10x normally and under `-race`: server reviewer/lock/watch tests and public-client reviewer/deadline tests.
+- Passed real-process API tests normally and under `-race`.
 - Passed uncached: `go test -count=1 ./...` and `go test -race -count=1 ./...`.
-- Passed focused: `go test ./internal/server -count=10`, `go test -race ./internal/server -count=10`, `go test ./gapdb -count=10`, `go test -race ./gapdb -count=10`, and real-process API tests normally and under `-race`.
-- Passed: `go vet ./...`, `staticcheck ./...`, `govulncheck ./...` (no vulnerabilities), `go mod verify`, `go mod tidy -diff`, full `gofmt`, and `git diff --check 9a70177..HEAD`.
-- Passed fuzz: `FuzzDecodeSnapshotNeverPanics` for 5 seconds (546,869 executions) and `FuzzStorageDecoders` for 5 seconds (33,925 executions).
-- Four temporary adversarial tests exercised the production server/client paths, failed as described, and were removed after execution.
+- Passed: `go vet ./...`, `staticcheck ./...`, `govulncheck ./...` (no vulnerabilities), `go mod verify`, `go mod tidy -diff`, full `gofmt`, and `git diff --check 9838355..HEAD`.
+- Passed fuzz: `FuzzDecodeSnapshotNeverPanics` for 5 seconds (442,412 executions) and `FuzzStorageDecoders` for 5 seconds (38,823 executions).
+- Both temporary adversarial tests used production server/client paths, failed as described, and were removed.
 
 ## Anti-pattern checklist
 
-1. Dead code: **PASS** — new client/server/daemon entrypoints have production callers.
-2. Synthetic-fixture test: **FAIL** — existing client fixtures do not exercise canonical nested response validation, and admin tests assert only a subset of the documented wire results.
+1. Dead code: **PASS** — new codec/DTO/lifecycle surfaces have production callers.
+2. Synthetic-fixture test: **PASS** — repaired tests invoke production client, codec, server, persistence, and daemon paths.
 3. Silent empty return: **PASS** — no relevant silent empty-return pattern found.
-4. FR coverage: **FAIL** — FR-016/017/019/020/023/024 are incomplete at lock permissions, client protocol validation, admin results, and watch Close lifecycle.
-5. Frozen surface: **PASS** — `9838355` does not modify the approved protocol/error/spec artifacts.
-6. Locked decision: **FAIL** — owner-only lock permissions and strict canonical protocol decoding are explicit locked decisions.
-7. Shared-file ownership: **PASS** — WP06 changes are isolated to its owned integration surfaces atop approved ancestry.
-8. Production fragility: **FAIL** — a Close/registration race leaks a live stream and malformed server data is accepted as authoritative success.
+4. FR coverage: **FAIL** — FR-016 and FR-014/017 remain incomplete at exact lock identity and watch registration-error transport.
+5. Frozen surface: **PASS** — mission contracts/spec artifacts were not modified.
+6. Locked decision: **FAIL** — one-owner inode identity and stable structured watch errors are violated.
+7. Shared-file ownership: **PASS** — repair changes remain within WP06 integration surfaces.
+8. Production fragility: **FAIL** — a locked pathname substitution permits false readiness, and a normal watch condition error is misclassified as ambiguous transport loss.
