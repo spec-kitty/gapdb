@@ -281,3 +281,17 @@ operational record, not part of the Gapdb product contract.
   queue update until a later governed commit or final handoff.
 - **Impact:** no mission or product state is lost; a generated local-sync queue
   entry remains uncommitted between governed operations.
+
+## 2026-08-23 — WP02 transition treated governance-only main history as stale code
+
+- **Surface:** WP02 `move-task --to for_review` ancestry preflight.
+- **Symptom:** lane B correctly began at approved WP01 product HEAD `8485a51`,
+  but the preflight refused it as 26 commits behind `main`. Those commits were
+  mission status, runtime, analysis, and workaround bookkeeping that must not be
+  rebased into a product lane.
+- **Recovery:** verify the lane's merge base and full WP01 product ancestry, keep
+  the lane clean, and retry the exact transition with the command's `--force`
+  option plus the established protected-main hatch. The forced event is
+  `01M0QJBSKPV56S2W3BBC2ADR3G`.
+- **Impact:** no product commit was skipped or duplicated; lane isolation was
+  preserved while the canonical status authority advanced WP02 to review.

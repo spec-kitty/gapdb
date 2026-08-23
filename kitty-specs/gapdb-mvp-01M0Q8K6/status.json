@@ -60,6 +60,9 @@
       "last_event_id": "01M0QJBSKPV56S2W3BBC2ADR3G",
       "last_transition_at": "2026-08-23T15:03:28.118055+00:00",
       "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: CRC32C v1 storage formats, durable revision reservation, strict WAL recovery, injected filesystem barriers, owner locking, independent goldens and bounded fuzz corpus. Red-first regressions covered invalid expiry encoding, clean-close barrier durability, and snapshot ordering; full, race, vet, staticcheck, govulncheck, module, format, and diff gates pass. Forced only past the known stale-main ancestry guard; lane is based on approved WP01 HEAD 8485a51."
+      ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 2772430,
