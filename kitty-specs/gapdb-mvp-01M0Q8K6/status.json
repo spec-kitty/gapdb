@@ -237,6 +237,9 @@
       "last_event_id": "01M0R8NRHKW2JZBJWAPSPT4FS3",
       "last_transition_at": "2026-08-23T21:33:23.379324+00:00",
       "model": "__resolved_model_absent__",
+      "notes": [
+        "Deterministic gapctl data/admin/offline/recovery JSON API, flushed terminal watch JSONL, model-only lifecycle/runbooks, full/race/static/security/fuzz gates green. Forced only across main-only governance/status ancestry; lane preserves approved WP06 product lineage."
+      ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 2772430,
