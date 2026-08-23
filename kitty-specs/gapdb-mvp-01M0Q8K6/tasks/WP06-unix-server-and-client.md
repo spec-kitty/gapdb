@@ -236,3 +236,8 @@ uses only the public Go client/raw socket and never imports internal packages.
 Focus on ownership order, connection/resource bounds, socket modes, operation
 coverage, lifecycle sequencing, and the separation between transport errors and
 structured server errors. Confirm black-box tests do not bypass the socket.
+
+## Activity Log
+
+- 2026-08-23T20:19:52Z – implementer-ivan – shell_pid=0 – WP06 cycle-2 repair ac0bdd5. Red evidence: lock test ok  	gapdb/internal/server	0.027s failed to compile before BeforeLockModeCheck; watch test ok  	gapdb/gapdb	0.003s failed because Watch returned live after Close; strict-codec/admin red baseline is canonical cycle-2 reproduction ok  	gapdb/gapdb	0.023s
+ok  	gapdb/internal/server	0.028s (unknown nested get accepted and snapshot emitted Go field names/missing authority evidence). Green: reviewer tests x10 and race x10; full ./... and race; vet; staticcheck; govulncheck; mod verify/tidy; gofmt/diff; both storage fuzz targets 5s. Exact held LOCK 0600/inode, strict client+canonical schemas/all error fixtures, atomic watch reservation, and complete lowercase admin DTOs.
