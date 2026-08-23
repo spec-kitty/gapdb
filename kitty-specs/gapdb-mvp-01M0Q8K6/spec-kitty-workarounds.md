@@ -160,3 +160,16 @@ operational record, not part of the Gapdb product contract.
   any later targeted commit.
 - **Impact:** execution worktrees remain visible to git's worktree machinery but
   cannot be accidentally swept into a project commit.
+
+## 2026-08-23 — Implement prompt referenced an absent charter section
+
+- **Surface:** WP01 implement governance instructions.
+- **Symptom:** the runtime prompt required
+  `spec-kitty charter context --include section:terminology-canon` when terms are
+  introduced, but the command returned
+  `No charter section found for selector 'section:terminology-canon'`.
+- **Recovery:** use the committed mission specification, protocol/storage/error
+  contracts, and data model as the terminology authority; require the implementer
+  and reviewer to check for vocabulary drift explicitly.
+- **Impact:** no terminology rule was bypassed and no new term was inferred from
+  the missing section.

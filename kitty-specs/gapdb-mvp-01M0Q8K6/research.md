@@ -8,9 +8,14 @@ recovery, and autonomous operation. No item remains marked for clarification.
 
 ## Decision 1 — Go toolchain and dependency budget
 
-**Decision**: Use Go 1.26 with the locally installed Go 1.26.4 toolchain. Use the
-standard library except for `golang.org/x/sys/unix`, pinned in `go.mod`, for
-advisory ownership locking.
+**Decision**: Use Go 1.26 with Go 1.26.7 as the minimum project toolchain. Use
+the standard library except for `golang.org/x/sys/unix`, pinned in `go.mod`,
+for advisory ownership locking.
+
+**Security update**: The initial local reference was Go 1.26.4. WP01 dependency
+review found published standard-library advisories fixed in later Go 1.26 patch
+releases. Gapdb therefore pins the current supported security patch, Go 1.26.7,
+before accepting its first implementation package.
 
 **Rationale**: The standard library provides Unix domain sockets through
 `net.Listen`/`net.ListenUnix`, file syncing through `os.File.Sync`, binary

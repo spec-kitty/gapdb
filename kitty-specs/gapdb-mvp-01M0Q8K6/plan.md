@@ -41,7 +41,7 @@ No product-level decision remains deferred.
 
 ## Technical Context
 
-**Language/Version**: Go 1.26.4 (the project reference toolchain; `go 1.26` module directive)  
+**Language/Version**: Go 1.26.7 (the project security-patched reference toolchain; `go 1.26` module directive plus `toolchain go1.26.7`)  
 **Primary Dependencies**: Go standard library; `golang.org/x/sys/unix` only for advisory `flock` ownership  
 **Storage**: In-memory `map[string]Record`; binary CRC32C WAL; binary SHA-256 snapshots; atomic checksummed manifest and identity files  
 **Testing**: `go test`, `go test -race`, black-box Unix-socket/CLI contract tests, deterministic clock tests, filesystem fault injection, crash subprocess tests, fuzzing, golden format fixtures, and benchmarks  
