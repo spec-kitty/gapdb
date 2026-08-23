@@ -1,0 +1,241 @@
+{
+  "version": 1,
+  "mission_slug": "gapdb-mvp-01M0Q8K6",
+  "mission_id": "01M0Q8K61B2MWHKZEXB0HA5E03",
+  "mission_branch": "kitty/mission-gapdb-mvp-01M0Q8K6",
+  "target_branch": "main",
+  "lanes": [
+    {
+      "lane_id": "lane-a",
+      "wp_ids": [
+        "WP01"
+      ],
+      "write_scope": [
+        "gapdb/options.go",
+        "gapdb/types.go",
+        "go.mod",
+        "go.sum",
+        "internal/clock/**",
+        "internal/protocol/**",
+        "tests/compatibility/protocol/**"
+      ],
+      "predicted_surfaces": [
+        "api"
+      ],
+      "depends_on_lanes": [],
+      "parallel_group": 0
+    },
+    {
+      "lane_id": "lane-b",
+      "wp_ids": [
+        "WP02"
+      ],
+      "write_scope": [
+        "internal/faultfs/**",
+        "internal/persist/identity.go",
+        "internal/persist/identity_test.go",
+        "internal/persist/manifest.go",
+        "internal/persist/manifest_test.go",
+        "internal/persist/recovery.go",
+        "internal/persist/recovery_test.go",
+        "internal/persist/wal.go",
+        "internal/persist/wal_test.go",
+        "tests/compatibility/storage/**"
+      ],
+      "predicted_surfaces": [
+        "api",
+        "app-shell",
+        "legacy-cleanup",
+        "tracker-integration"
+      ],
+      "depends_on_lanes": [
+        "lane-a"
+      ],
+      "parallel_group": 1
+    },
+    {
+      "lane_id": "lane-c",
+      "wp_ids": [
+        "WP03"
+      ],
+      "write_scope": [
+        "internal/engine/mutation.go",
+        "internal/engine/mutation_test.go",
+        "internal/engine/revision.go",
+        "internal/engine/revision_test.go",
+        "internal/engine/state.go",
+        "internal/engine/state_test.go",
+        "internal/engine/writer.go",
+        "internal/engine/writer_test.go"
+      ],
+      "predicted_surfaces": [
+        "api",
+        "tracker-integration"
+      ],
+      "depends_on_lanes": [
+        "lane-a",
+        "lane-b"
+      ],
+      "parallel_group": 2
+    },
+    {
+      "lane_id": "lane-d",
+      "wp_ids": [
+        "WP04"
+      ],
+      "write_scope": [
+        "internal/engine/expiry.go",
+        "internal/engine/expiry_test.go",
+        "internal/engine/history.go",
+        "internal/engine/history_test.go",
+        "internal/engine/scan.go",
+        "internal/engine/scan_test.go",
+        "internal/engine/watch.go",
+        "internal/engine/watch_test.go"
+      ],
+      "predicted_surfaces": [
+        "api",
+        "legacy-cleanup",
+        "workspace"
+      ],
+      "depends_on_lanes": [
+        "lane-c"
+      ],
+      "parallel_group": 3
+    },
+    {
+      "lane_id": "lane-e",
+      "wp_ids": [
+        "WP05"
+      ],
+      "write_scope": [
+        "internal/admin/**",
+        "internal/persist/backup.go",
+        "internal/persist/backup_test.go",
+        "internal/persist/compaction.go",
+        "internal/persist/compaction_test.go",
+        "internal/persist/snapshot.go",
+        "internal/persist/snapshot_test.go"
+      ],
+      "predicted_surfaces": [
+        "api",
+        "artifact-rendering",
+        "legacy-cleanup",
+        "tracker-integration",
+        "workspace"
+      ],
+      "depends_on_lanes": [
+        "lane-b",
+        "lane-c",
+        "lane-d"
+      ],
+      "parallel_group": 4
+    },
+    {
+      "lane_id": "lane-f",
+      "wp_ids": [
+        "WP06"
+      ],
+      "write_scope": [
+        "cmd/gapdbd/**",
+        "gapdb/client.go",
+        "gapdb/client_test.go",
+        "internal/server/**",
+        "tests/contract/api/**"
+      ],
+      "predicted_surfaces": [
+        "api",
+        "legacy-cleanup",
+        "tracker-integration"
+      ],
+      "depends_on_lanes": [
+        "lane-a",
+        "lane-c",
+        "lane-d",
+        "lane-e"
+      ],
+      "parallel_group": 5
+    },
+    {
+      "lane_id": "lane-g",
+      "wp_ids": [
+        "WP07"
+      ],
+      "write_scope": [
+        "cmd/gapctl/**",
+        "docs/operations/**",
+        "tests/contract/cli/**",
+        "tests/contract/modelops/**"
+      ],
+      "predicted_surfaces": [
+        "api",
+        "artifact-rendering",
+        "workspace"
+      ],
+      "depends_on_lanes": [
+        "lane-f"
+      ],
+      "parallel_group": 6
+    },
+    {
+      "lane_id": "lane-h",
+      "wp_ids": [
+        "WP08"
+      ],
+      "write_scope": [
+        "docs/evidence/crash/**",
+        "tests/compatibility/fuzz/**",
+        "tests/crash/**"
+      ],
+      "predicted_surfaces": [
+        "api",
+        "artifact-rendering",
+        "legacy-cleanup",
+        "tracker-integration",
+        "workspace"
+      ],
+      "depends_on_lanes": [
+        "lane-b",
+        "lane-c",
+        "lane-d",
+        "lane-e",
+        "lane-f",
+        "lane-g"
+      ],
+      "parallel_group": 7
+    },
+    {
+      "lane_id": "lane-i",
+      "wp_ids": [
+        "WP09"
+      ],
+      "write_scope": [
+        "README.md",
+        "docs/evidence/performance/**",
+        "docs/formats/**",
+        "tests/adoption/**",
+        "tests/performance/**"
+      ],
+      "predicted_surfaces": [
+        "api",
+        "app-shell",
+        "tracker-integration",
+        "workspace"
+      ],
+      "depends_on_lanes": [
+        "lane-a",
+        "lane-b",
+        "lane-c",
+        "lane-d",
+        "lane-e",
+        "lane-f",
+        "lane-g",
+        "lane-h"
+      ],
+      "parallel_group": 8
+    }
+  ],
+  "computed_at": "2026-08-23T13:12:41.154305+00:00",
+  "computed_from": "dependency_graph+ownership",
+  "planning_artifact_wps": []
+}
