@@ -148,3 +148,15 @@ operational record, not part of the Gapdb product contract.
   The charter and minimal DRG were regenerated through supported commands.
 - **Impact:** no product scope changed; the workflow can resolve its own declared
   research profile.
+
+## 2026-08-23 — Lane worktrees were not ignored by the initialized repository
+
+- **Surface:** first implementation lane creation.
+- **Symptom:** Spec Kitty created `.worktrees/<mission>-lane-a` inside the
+  repository, but the initialized project had no `.gitignore` entry for
+  `.worktrees/`, so the entire lane checkout appeared as untracked main-worktree
+  content.
+- **Recovery:** add the narrow repository-root ignore rule `.worktrees/` before
+  any later targeted commit.
+- **Impact:** execution worktrees remain visible to git's worktree machinery but
+  cannot be accidentally swept into a project commit.
