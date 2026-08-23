@@ -1,7 +1,7 @@
 {
-  "event_count": 8,
-  "last_event_id": "01M0QC0Y9SAX387393CA15J55D",
-  "materialized_at": "2026-08-23T13:12:41.017809+00:00",
+  "event_count": 9,
+  "last_event_id": "01M0QC0YC32FFBZC1FXB78D6RH",
+  "materialized_at": "2026-08-23T13:12:41.091518+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -14,7 +14,7 @@
     "for_review": 0,
     "in_progress": 0,
     "in_review": 0,
-    "planned": 8
+    "planned": 9
   },
   "work_packages": {
     "WP01": {
@@ -72,6 +72,13 @@
       "lane": "planned",
       "last_event_id": "01M0QC0Y9SAX387393CA15J55D",
       "last_transition_at": "2026-08-23T13:12:41.017809+00:00"
+    },
+    "WP09": {
+      "actor": "finalize-tasks",
+      "force_count": 0,
+      "lane": "planned",
+      "last_event_id": "01M0QC0YC32FFBZC1FXB78D6RH",
+      "last_transition_at": "2026-08-23T13:12:41.091518+00:00"
     }
   }
 }
