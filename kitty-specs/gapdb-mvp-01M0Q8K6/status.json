@@ -1,7 +1,7 @@
 {
-  "event_count": 44,
-  "last_event_id": "01M0QPRMS1TXS076GV37WHE4VE",
-  "materialized_at": "2026-08-23T16:20:23.457587+00:00",
+  "event_count": 45,
+  "last_event_id": "01M0QPSXZF4D9MRK0KBXWXE26Q",
+  "materialized_at": "2026-08-23T16:21:05.647277+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -11,9 +11,9 @@
     "canceled": 0,
     "claimed": 0,
     "done": 0,
-    "for_review": 1,
+    "for_review": 0,
     "in_progress": 0,
-    "in_review": 0,
+    "in_review": 1,
     "planned": 6
   },
   "work_packages": {
@@ -87,20 +87,20 @@
       }
     },
     "WP03": {
-      "actor": "codex",
-      "agent": "codex",
-      "agent_profile": "implementer-ivan",
+      "actor": "codex-review",
+      "agent": "codex-review",
+      "agent_profile": "reviewer-renata",
       "agent_profile_version": "1.0",
       "force_count": 1,
-      "lane": "for_review",
-      "last_event_id": "01M0QPRMS1TXS076GV37WHE4VE",
-      "last_transition_at": "2026-08-23T16:20:23.457587+00:00",
+      "lane": "in_review",
+      "last_event_id": "01M0QPSXZF4D9MRK0KBXWXE26Q",
+      "last_transition_at": "2026-08-23T16:21:05.647277+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "Serialized engine core complete: one bounded writer, direct copy-safe reads, conditional and atomic mutations, reserved revisions, honest memory/durable barriers, deterministic shutdown/degradation, and race/fault coverage. Full Go 1.26.7 tests, race, vet, staticcheck, govulncheck, module/format/diff gates, and storage fuzz pass. Forced only across 58 verified main-only governance/status/history commits; product lane remains based on approved WP02 HEAD."
       ],
       "provider": "__resolved_provider_absent__",
-      "role": "implementer",
+      "role": "reviewer",
       "shell_pid": 2772430,
       "shell_pid_created_at": "1787486609.27",
       "subtasks": {
