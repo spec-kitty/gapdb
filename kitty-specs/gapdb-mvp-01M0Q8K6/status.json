@@ -1,7 +1,7 @@
 {
-  "event_count": 144,
-  "last_event_id": "01M0RB61G27K4JY48HADZFKJND",
-  "materialized_at": "2026-08-23T22:17:13.986152+00:00",
+  "event_count": 145,
+  "last_event_id": "01M0RB7NSYMFV640SJQC20R0E2",
+  "materialized_at": "2026-08-23T22:18:07.550282+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -228,14 +228,14 @@
       }
     },
     "WP07": {
-      "actor": "user",
+      "actor": "codex-review-3",
       "agent": "",
       "agent_profile": "reviewer-renata",
       "agent_profile_version": "1.0",
-      "force_count": 5,
+      "force_count": 6,
       "lane": "planned",
-      "last_event_id": "01M0RB61G27K4JY48HADZFKJND",
-      "last_transition_at": "2026-08-23T22:17:13.986152+00:00",
+      "last_event_id": "01M0RB7NSYMFV640SJQC20R0E2",
+      "last_transition_at": "2026-08-23T22:18:07.550282+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "Deterministic gapctl data/admin/offline/recovery JSON API, flushed terminal watch JSONL, model-only lifecycle/runbooks, full/race/static/security/fuzz gates green. Forced only across main-only governance/status ancestry; lane preserves approved WP06 product lineage.",
