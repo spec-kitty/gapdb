@@ -1,48 +1,47 @@
 ---
 affected_files:
-  - internal/persist/identity.go
-  - internal/server/owner.go
   - internal/server/server.go
+  - internal/server/socket_anchor.go
 cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
-reproduction_command: go test ./internal/server -run '^TestReviewerDatabaseDirectorySwapFailsBeforeReadiness$' -count=1
-reviewed_at: '2026-08-23T20:48:00Z'
+reproduction_command: go test ./internal/server -run '^TestReviewerSeparateSocketParentSwapBeforeFirstCheckFailsClosed$' -count=10
+reviewed_at: '2026-08-23T20:55:23Z'
 reviewer_agent: reviewer-renata
 verdict: rejected
 wp_id: WP06
 ---
 
-# WP06 Final Repair Re-review
+# WP06 Final Directory-Authority Re-review
 
 Verdict: changes requested.
 
 ## Closure evidence
 
-- The exact runtime-held `LOCK` descriptor is now chmodded and compared with `LOCK` through the acquisition-time directory descriptor. Symlink, unlocked replacement, and separately flocked replacement-inode probes all reject before socket creation; descriptor close paths are synchronized and leak-free in the normal/race tests.
-- Watch registration errors now use the strict terminal shape `ok:false`, `stream:"ended"`, `reason:"error"`. The public client returns typed `REVISION_AHEAD`, `REVISION_COMPACTED`, and `SERVER_BUSY`, and all stable error schemas encode/decode as watch terminal failures.
-- Prior strict client/canonical response validation, pending-watch Close race, complete lowercase admin DTOs, permission checks, recovery refusal, accepted-work drain, real-process restart, and daemon behavior remain green.
+- Database-directory replacement is now detected at the before-lock-check, after-stale-cleanup, and after-listener-bind boundaries. The retained owner directory/parent descriptors bind the named database directory to the acquired inode, and failed startup removes only the socket in the anchored original directory while preserving a plausible flocked replacement `LOCK`, replacement socket, and sentinel.
+- Later socket-parent replacement is also detected once `directoryAnchor` exists. Stale unlink, bind through `/proc/self/fd`, socket chmod/identity verification, and normal cleanup are descriptor-relative. Procfs failure has no pathname fallback and therefore fails closed. The public `SocketPath` remains dialable in the normal daemon/client contract tests, and normal close, restart, stale cleanup, second-owner refusal, and corrupt-start refusal pass normally and under race.
+- All earlier WP06 findings remain closed: the exact held `LOCK` is mode/identity checked; a separately flocked replacement inode cannot impersonate it; strict client/canonical decoding rejects unknown nested fields, duplicates, non-canonical base64/time, invalid null/presence, and trailing input; watch registration and `Client.Close` are atomic; pre-registration watch failures retain typed stable errors; online admin DTOs preserve the complete canonical lowercase evidence shape.
 
 ## Blocking finding
 
-1. **Replacing the entire database directory can still redirect readiness and the Unix socket.** `OwnerLock` retains an acquisition-time directory descriptor, and `SecureHeldPath` verifies `LOCK` relative to that descriptor. If the whole database directory is renamed, the old directory descriptor and held `LOCK` remain mutually consistent, so both pre-listen lock checks pass. But directory chmod/stat, stale-socket removal, and `net.ListenUnix` resolve `config.Directory`/`SocketPath` again by pathname. The independent hook renamed `<parent>/database` to `database.held`, created a new owner-only `database` directory, and `server.Open` returned success with `gapdb.sock` in the replacement directory while WAL/lease authority remained in the renamed original. This is false readiness and splits the published socket from storage authority. Bind the acquisition-time database-directory inode to its parent/name and verify that exact identity at every pathname publication boundary, or perform socket lifecycle operations through a continuously anchored directory capability. After bind, verify the created socket's parent and inode before readiness; on any directory rename/replacement, close without publishing readiness and remove only a socket proven to belong to the anchored directory. Add full-directory rename/replacement probes before the first lock check, between stale cleanup and the final check, and across listener bind, repeated and under `-race`.
+1. **A separately configured socket parent can be replaced before its authority is acquired, and the replacement receives readiness.** `server.Open` completes `openRuntime` (including `BeforeLockModeCheck`) before it calls `openDirectoryAnchor(filepath.Dir(config.SocketPath))`. An independent production-path probe used a database directory and a separate socket parent, renamed the socket parent during `BeforeLockModeCheck`, created a replacement parent with a sentinel and plausible live Unix socket, and observed `server.Open` succeed 10/10. Startup anchored the replacement after the swap, removed its existing socket, and published the Gapdb listener there. This violates the required no-readiness/no-mutation behavior at the first seam and makes the result depend on whether `SocketPath` happens to share the database directory. Acquire and retain the configured socket-parent capability before the first post-ownership authority check/race seam (reusing the held database-directory capability when appropriate), then use that same capability through stale cleanup, bind, verification, readiness, and close. Add the separate-socket-parent three-seam matrix, including a plausible socket and sentinel, x10 and under `-race`; the first seam must fail without unlinking or replacing anything in the substituted directory.
 
 ## Independent evidence
 
 - Go toolchain: `go1.26.7 linux/amd64`.
-- Passed focused 10x normally and under `-race`: server reviewer/lock/watch tests, public-client reviewer/deadline tests, and canonical/compatibility protocol suites.
-- Passed real-process API tests normally and under `-race`.
+- Reproduction: the temporary separate-parent substitution test failed 10/10 with `replacement socket parent received readiness`; the temporary probe was removed afterward.
+- Passed focused 10x normally and under `-race`: all server reviewer/ownership/watch/admin tests, public-client reviewer codec/watch tests, and real daemon API/restart/second-owner/corruption tests.
 - Passed uncached: `go test -count=1 ./...` and `go test -race -count=1 ./...`.
-- Passed: `go vet ./...`, `staticcheck ./...`, `govulncheck ./...` (no vulnerabilities), `go mod verify`, `go mod tidy -diff`, full `gofmt`, and `git diff --check ac0bdd5..HEAD`.
-- Passed fuzz: `FuzzDecodeSnapshotNeverPanics` for 5 seconds (502,405 executions) and `FuzzStorageDecoders` for 5 seconds (98,229 executions).
-- The temporary database-directory substitution probe used the production server lifecycle, failed as described, and was removed.
+- Passed: `go vet ./...`, `staticcheck ./...`, `govulncheck ./...` (`No vulnerabilities found`), `go mod verify`, `go mod tidy` with no module diff, full `gofmt`, and `git diff --check`.
+- Passed fuzz: `FuzzDecodeSnapshotNeverPanics` for 5 seconds (372,481 executions) and `FuzzStorageDecoders` for 5 seconds (58,232 executions).
+- Lane scope is clean apart from runtime-owned untracked `.spec-kitty/`; no review probe or mission-artifact change remains in lane-f.
 
 ## Anti-pattern checklist
 
-1. Dead code: **PASS** — new ownership, codec, DTO, and watch paths have production callers.
-2. Synthetic-fixture test: **PASS** — repair tests invoke production server/client/protocol/persistence/daemon paths.
-3. Silent empty return: **PASS** — no relevant silent empty-return pattern found.
-4. FR coverage: **FAIL** — FR-016 is incomplete because socket readiness is not bound to the acquired database-directory authority.
-5. Frozen surface: **PASS** — mission contract/spec artifacts were not modified.
-6. Locked decision: **FAIL** — exactly one owner and owner-only local socket authority are split by directory replacement.
-7. Shared-file ownership: **PASS** — repair changes are scoped to WP06 and the approved ownership seam.
-8. Production fragility: **FAIL** — a pathname substitution yields ordinary readiness against the wrong directory.
+1. Dead code: **PASS** — the new socket anchor has production callers from server startup and shutdown.
+2. Synthetic-fixture test: **PASS** — lifecycle, protocol, client, and daemon tests invoke production paths.
+3. Silent empty return: **PASS** — no relevant silent empty-return path was introduced.
+4. FR coverage: **FAIL** — FR-016 remains incomplete for a separately configured socket parent at the earliest authority seam.
+5. Frozen surface: **PASS** — no frozen specification or contract surface changed.
+6. Locked decision: **FAIL** — owner-only socket authority can be redirected to a replacement parent before anchoring.
+7. Shared-file ownership: **PASS** — repair changes are scoped to WP06 and the approved persistence ownership seam.
+8. Production fragility: **FAIL** — a pathname substitution can obtain ordinary readiness and cause mutation of replacement state.
