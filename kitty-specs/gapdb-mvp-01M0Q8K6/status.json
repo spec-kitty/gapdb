@@ -1,7 +1,7 @@
 {
-  "event_count": 157,
-  "last_event_id": "01M0RCGCZZ15VKZVDHSDZ80XHW",
-  "materialized_at": "2026-08-23T22:40:22.015503+00:00",
+  "event_count": 159,
+  "last_event_id": "01M0RCGGDAHBKR4TGNHD6P2PP1",
+  "materialized_at": "2026-08-23T22:40:25.513994+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -12,9 +12,9 @@
     "claimed": 0,
     "done": 0,
     "for_review": 0,
-    "in_progress": 0,
+    "in_progress": 1,
     "in_review": 0,
-    "planned": 3
+    "planned": 2
   },
   "work_packages": {
     "WP01": {
@@ -228,24 +228,25 @@
       }
     },
     "WP07": {
-      "actor": "codex-review-5",
-      "agent": "",
-      "agent_profile": "reviewer-renata",
+      "actor": "codex",
+      "agent": "codex-review-5",
+      "agent_profile": "implementer-ivan",
       "agent_profile_version": "1.0",
       "force_count": 10,
-      "lane": "planned",
-      "last_event_id": "01M0RCGCZZ15VKZVDHSDZ80XHW",
-      "last_transition_at": "2026-08-23T22:40:22.015503+00:00",
+      "lane": "in_progress",
+      "last_event_id": "01M0RCGGDAHBKR4TGNHD6P2PP1",
+      "last_transition_at": "2026-08-23T22:40:25.513994+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "Deterministic gapctl data/admin/offline/recovery JSON API, flushed terminal watch JSONL, model-only lifecycle/runbooks, full/race/static/security/fuzz gates green. Forced only across main-only governance/status ancestry; lane preserves approved WP06 product lineage.",
         "Reattach canonical WP07 review after runtime URI failure",
         "Reattach canonical operation-attribution review after runtime URI failure",
         "Reattach canonical malformed-split review after runtime URI failure",
-        "Reattach canonical early request-ID review after runtime URI failure"
+        "Reattach canonical early request-ID review after runtime URI failure",
+        "Reattach canonical request-ID contract review after runtime URI failure"
       ],
       "provider": "__resolved_provider_absent__",
-      "role": "reviewer",
+      "role": "implementer",
       "shell_pid": 0,
       "shell_pid_created_at": "1787486609.27",
       "subtasks": {
