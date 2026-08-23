@@ -27,6 +27,9 @@
       "last_event_id": "01M0QE5BY6SZS479P1HSPND0T7",
       "last_transition_at": "2026-08-23T13:50:03.206283+00:00",
       "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: public contracts, strict protocol v1, golden fixtures, deterministic clock, and reviewed x/sys pin; all Go 1.26.7 gates pass"
+      ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 2772430,

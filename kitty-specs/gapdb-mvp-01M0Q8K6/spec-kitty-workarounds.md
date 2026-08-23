@@ -187,3 +187,25 @@ operational record, not part of the Gapdb product contract.
   the prescribed verification suite.
 - **Impact:** the missing generated selector did not relax the package gate or
   substitute implementer self-approval for independent review.
+
+## 2026-08-23 — Pre-review coverage gate assumed Python infrastructure
+
+- **Surface:** WP01 pre-review regression gate in a Go-only repository.
+- **Symptom:** the generated gate returned `no_coverage` after importing the
+  absent Python module `tests.architectural._gate_coverage`.
+- **Recovery:** retain the gate result as runtime evidence and execute the
+  repository-native full test suite, race detector, `go vet`, `staticcheck`,
+  `govulncheck`, module verification, formatting, and diff checks.
+- **Impact:** no product test was skipped; the generic architectural coverage
+  hook could not assess this repository's Go tests.
+
+## 2026-08-23 — Transition annotation was written after auto-commit
+
+- **Surface:** WP01 `move-task --to for_review` bookkeeping.
+- **Symptom:** the transition created commit `7200839`, then appended its note
+  to `status.json` and `status.events.jsonl` after that commit, leaving both
+  canonical status artifacts dirty on `main`.
+- **Recovery:** preserve the append-only annotation and commit only those two
+  status artifacts through the protected-branch one-command safe-commit path.
+- **Impact:** WP01's lane and implementation commit remain clean; one extra
+  targeted bookkeeping commit is required on the status authority branch.
