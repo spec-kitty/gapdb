@@ -1,7 +1,7 @@
 {
-  "event_count": 43,
-  "last_event_id": "01M0QNTPZDV15KZ1T2JW5MWHH0",
-  "materialized_at": "2026-08-23T16:04:02.668884+00:00",
+  "event_count": 44,
+  "last_event_id": "01M0QPRMS1TXS076GV37WHE4VE",
+  "materialized_at": "2026-08-23T16:20:23.457587+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -11,8 +11,8 @@
     "canceled": 0,
     "claimed": 0,
     "done": 0,
-    "for_review": 0,
-    "in_progress": 1,
+    "for_review": 1,
+    "in_progress": 0,
     "in_review": 0,
     "planned": 6
   },
@@ -91,15 +91,23 @@
       "agent": "codex",
       "agent_profile": "implementer-ivan",
       "agent_profile_version": "1.0",
-      "force_count": 0,
-      "lane": "in_progress",
-      "last_event_id": "01M0QNTPZDV15KZ1T2JW5MWHH0",
-      "last_transition_at": "2026-08-23T16:04:02.668884+00:00",
+      "force_count": 1,
+      "lane": "for_review",
+      "last_event_id": "01M0QPRMS1TXS076GV37WHE4VE",
+      "last_transition_at": "2026-08-23T16:20:23.457587+00:00",
       "model": "__resolved_model_absent__",
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 2772430,
-      "shell_pid_created_at": "1787486609.27"
+      "shell_pid_created_at": "1787486609.27",
+      "subtasks": {
+        "T012": "done",
+        "T013": "done",
+        "T014": "done",
+        "T015": "done",
+        "T016": "done",
+        "T017": "done"
+      }
     },
     "WP04": {
       "actor": "finalize-tasks",
