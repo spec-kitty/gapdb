@@ -1,0 +1,95 @@
+schema_version: "1.0.0"
+mission: "software-dev"
+profile: "comprehensive"
+answers:
+  project_intent: >-
+    Build and maintain Gapdb as a tiny, durable, local key-value coordination
+    store: the dependable gap between a Go map and a general database. Preserve
+    the deliberately small model—one local owner, in-memory records, serialized
+    mutations, conditional writes, an append-only durability log, snapshots,
+    and a Unix socket. Prefer explicit semantics and operational evidence over
+    database breadth or cleverness.
+  languages_frameworks: >-
+    Implement the server, first-party client, and CLI in Go. Prefer the Go
+    standard library and small, well-justified dependencies. Use ordinary Go
+    concurrency primitives and explicit ownership; do not introduce lock-free
+    machinery, code generation, cgo, or an embedded language model without an
+    approved mission-level reason.
+  testing_requirements: >-
+    Define externally observable behavior with failing tests before production
+    implementation. Maintain unit tests for state-machine invariants, black-box
+    contract tests through the public client and CLI, race-enabled concurrency
+    tests, deterministic clock and fault-injection tests, crash-recovery tests at
+    every persistence boundary, and golden compatibility tests for every wire
+    and persisted format version. Coverage numbers are supporting evidence, not
+    a substitute for exercising every durability and authority decision branch.
+  quality_gates: >-
+    Before review, changed code must pass gofmt, go vet, the configured static
+    analyzer, go test ./..., go test -race ./..., relevant black-box contract
+    tests, and applicable fault-injection or compatibility suites. No flaky test
+    may be ignored or blindly retried. New dependencies require a documented
+    need, license and vulnerability review, and proof that the standard library
+    is insufficient. Complexity that does not protect a specified invariant is
+    removed.
+  review_policy: >-
+    Behavior-changing work requires an independent review by an agent or human
+    that did not implement it. Review traces changes to specification IDs and
+    challenges crash ordering, concurrency, expiry, conditional-write, bounded
+    resource, compatibility, and model-operability claims. Implementers may not
+    self-approve. Changing the charter, weakening a blocking gate, authorizing a
+    safety exception, or replacing the SQLite fallback requires explicit human
+    approval.
+  performance_targets: >-
+    Keep the hot path local, bounded, and measurable. Each mission records a
+    reproducible reference machine and workload for its latency, memory, and
+    recovery targets. Correctness and honest durability take precedence over
+    latency. A material regression—more than 10 percent on a stable benchmark or
+    a missed mission threshold—must be explained and approved before release.
+  deployment_constraints: >-
+    The initial product is a single-host Go process serving a permission-
+    restricted Unix domain socket and owning one database directory. Persisted
+    changes use explicit versioning, checksums, sync barriers, and atomic file
+    replacement. There is no TCP service, replication, distributed consensus,
+    or silent destructive recovery. SQLite remains the production fallback
+    until the mission's contract, recovery, and authority-safety gates pass.
+  documentation_policy: >-
+    Keep the mission specification, acceptance examples, public API, error-code
+    catalog, wire-format document, storage-format document, recovery runbook,
+    configuration reference, and model-facing JSON examples synchronized with
+    shipped behavior in the same change. Human prose explains intent; stable
+    structured fields govern automation. Record non-obvious persistence and
+    concurrency decisions with concise ADRs.
+  risk_boundaries: >-
+    Gapdb must never falsely acknowledge durable state, expose a partial atomic
+    commit, silently skip watch history, resurrect expired authority, grant
+    authority from corrupt or uncertain state, or perform destructive recovery
+    without an explicit guarded command. Correctness, crash recovery, race
+    freedom, compatibility safety, and local access-control failures block merge
+    and release. Performance misses may warn during development but block any
+    release whose mission explicitly makes the threshold an acceptance gate.
+  amendment_process: >-
+    Amend this charter through a focused, reviewed commit that states the reason,
+    affected directives and workflows, migration impact, and effective date.
+    Preserve stronger existing protections unless the human project owner
+    explicitly approves their removal. Regenerate the structured charter and
+    update its human companion together, then validate before merge.
+  exception_policy: >-
+    Exceptions are rare, narrowly scoped, and never implicit. Each exception
+    requires explicit human approval, a written rationale, affected requirement
+    or gate, risk assessment, compensating control, named owner, expiry date, and
+    rollback plan. Exceptions may not permit false durable acknowledgement,
+    partial atomic visibility, authority from known-corrupt state, or silent
+    destructive recovery. Expired exceptions fail closed.
+selected_paradigms:
+  - "deep-module-design"
+  - "specification-by-example"
+selected_directives:
+  - "DIRECTIVE_001"
+  - "DIRECTIVE_010"
+  - "DIRECTIVE_030"
+  - "DIRECTIVE_034"
+  - "DIRECTIVE_036"
+  - "DIRECTIVE_037"
+available_tools:
+  - "spec-kitty"
+  - "git"
