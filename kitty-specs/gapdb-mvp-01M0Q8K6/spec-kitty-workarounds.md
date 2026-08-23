@@ -209,3 +209,36 @@ operational record, not part of the Gapdb product contract.
   status artifacts through the protected-branch one-command safe-commit path.
 - **Impact:** WP01's lane and implementation commit remain clean; one extra
   targeted bookkeeping commit is required on the status authority branch.
+
+## 2026-08-23 — Review prompt resolved the implementer identity
+
+- **Surface:** WP01 independent review prompt composition.
+- **Symptom:** the review claim and event selected `reviewer-renata`, but the
+  generated prompt's identity block resolved `implementer-ivan` from the WP
+  frontmatter.
+- **Recovery:** bind the review to a separate agent instance, explicitly load
+  the reviewer profile and full review contract, and record the actual reviewer
+  identity in the canonical feedback body.
+- **Impact:** the reviewer remained independent and rejected the package on five
+  substantiated findings; only generated identity metadata was wrong.
+
+## 2026-08-23 — First rejection was materialized as review cycle 2
+
+- **Surface:** WP01 rejected-review artifact generation.
+- **Symptom:** the prescribed `review-cycle-1.md` destination was copied by the
+  runtime into `review-cycle-2.md`, whose frontmatter says cycle 2 while its
+  body correctly identifies the first review cycle.
+- **Recovery:** treat the committed `review-cycle-2.md` path reported by the
+  runtime as canonical feedback and pass it unchanged into fix mode.
+- **Impact:** feedback content and rejection state are intact; cycle numbering
+  is inconsistent by one.
+
+## 2026-08-23 — Review prompt referenced a third absent charter section
+
+- **Surface:** WP01 terminology-cutover review instruction.
+- **Symptom:** `section:regression-vigilance`, like the earlier terminology and
+  checklist selectors, returned `No charter section found`.
+- **Recovery:** no terminology cutover occurred; the reviewer nevertheless
+  checked the diff against the committed spec, contracts, data model, and
+  charter vocabulary.
+- **Impact:** no vocabulary change escaped review.
