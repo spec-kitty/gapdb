@@ -1,9 +1,11 @@
 ---
-affected_files: []
+affected_files:
+  - internal/owner/runtime.go
+  - internal/persist/identity.go
 cycle_number: 3
 mission_slug: gapdb-mvp-01M0Q8K6
-reproduction_command: go test ./internal/admin -run '^TestReviewerRecoveryPinsPublishedDirectoryThroughSync$' -count=1 -v
-reviewed_at: '2026-08-23T18:52:53Z'
+reproduction_command: go test ./internal/owner -run '^TestReviewerOpenRejectsReleasedOwnerLock$' -count=1
+reviewed_at: '2026-08-23T19:20:00Z'
 reviewer_agent: reviewer-renata
 verdict: rejected
 wp_id: WP05
@@ -15,32 +17,31 @@ Verdict: changes requested.
 
 ## Closure evidence
 
-- Anchored final rename now rejects source-inode replacement and source/destination parent replacement before publication for recovery, backup, and restore.
-- `Controller.Backup` now crosses the real sole-writer WAL barrier; an `AckMemory` revision is flushed/synced and selected consistently before copying while mutation execution remains paused.
-- Applied backup, compaction, restore, recovery, and snapshot failures now preserve results, record an error-outcome audit when possible, return `AUDIT_FAILED_AFTER_APPLY` if that audit fails, and degrade live health.
-- Restore now requires the exact database ID, manifest generation, and current revision tuple and continues to verify backup lineage.
-- The bounded `owner.Runtime` wrapper routes all administrative operations through `Controller`.
+- `PublishNoReplaceAnchored` now keeps source and destination parent descriptors open continuously across `renameat2`, moved-inode/ancestry checks, and both required directory syncs. Recovery, backup, and restore return the descriptor-resolved stable destination. Repeated parent-identity changes and before/after sync fault matrices pass.
+- The superseded `RenameNoReplace`, `RenameNoReplaceAnchored`, and `SyncDirAnchored` APIs have zero declarations. All three publication paths use the single anchored primitive.
+- The real writer-owned backup barrier, exact restore database/generation/revision guards, bounded streaming evidence, and applied-result/audit/health-degradation semantics remain intact.
+- `owner.Open` is a non-test composition entrypoint that constructs the engine and guarded controller together and exposes bounded status plus administrative routing.
 
-## Blocking findings
+## Blocking finding
 
-1. **The published directory is not pinned continuously from rename through its durability sync.** `RenameNoReplaceAnchored` closes its pinned destination descriptor before the caller invokes `SyncDirAnchored`, which independently reopens the destination path. An adversarial recovery probe let the anchored WAL rename complete, then while the source directory sync hook ran renamed `quarantine` to `quarantine-moved` and created a new real `quarantine` directory. The second `SyncDirAnchored` opened and synced that replacement directory, and `ApplyRecovery` returned ordinary success with `QuarantinedPath: quarantine/<wal>`, while the actual WAL was under `quarantine-moved/<wal>` and its parent directory had not been synced. This violates the requested anchored rename+directory-sync authority boundary and reports false location/durability evidence. Keep the pinned destination descriptor alive through `fsync`, or perform publication plus destination-directory sync in one anchored primitive; verify the moved inode on that same descriptor and return success only if the original published parent was synced. Add the between-rename-and-sync real-directory replacement probe for recovery, backup, and restore.
-
-2. **The explicit dead-code gate still fails.** `faultfs.FS.RenameNoReplace` and `(*faultfs.OS).RenameNoReplace` now have zero production callers after all publication paths moved to `RenameNoReplaceAnchored`. Separately, `owner.Compose` has no non-test caller; the only construction is in `internal/owner/runtime_test.go`, so the newly introduced top-level runtime is not yet composed by a live owner/server entry point. Remove the superseded unanchored primitive and connect `owner.Runtime` from a production owner composition point (with a black-box routing test), or otherwise narrow the public surface so each new function/module has a production caller.
+1. **`owner.Open` accepts an already released `OwnerLock`, so the runtime can start without exclusive database authority.** `OwnerLock.Close` clears only `file`; `OwnerLock.Directory` continues returning the remembered directory. `owner.Open` checks only that directory string, so a caller can acquire and close the lock, pass the closed object to `owner.Open`, and then successfully acquire a second `OwnerLock` for the same database while the returned runtime is active. The independent deletion probe failed with `owner.Open accepted a released lock while another owner acquired the database`. This violates the sole-owner lifecycle boundary and the requirement that the runtime retain a matching lock until engine shutdown. Make live lock ownership an explicit synchronized state: `Open` must atomically validate/consume a still-held lock (not merely its path), reject nil/closed/mismatched ownership before constructing the engine, and make runtime/lock close exactly-once and race-safe while draining the engine before releasing authority. Add black-box tests for close-before-open, duplicate/invalid transfer, concurrent runtime closes under `-race`, and reacquisition only after completed shutdown.
 
 ## Independent evidence
 
 - Go toolchain: `go1.26.7 linux/amd64`.
-- Passed: `go test ./...`, `go test -race ./...`, `go vet ./...`, `staticcheck ./...`, `govulncheck ./...`, `go mod verify`, `go mod tidy -diff`, full `gofmt` check, and `git diff --check`.
-- Passed fuzz: `FuzzDecodeSnapshotNeverPanics` (5 seconds, 513,092 executions) and `FuzzStorageDecoders` (5 seconds, 30,401 executions).
-- The temporary publication-through-sync adversarial test independently failed and was removed after execution. Existing cycle-2/cycle-3 boundary and fault tests passed.
+- Passed uncached: `go test -count=1 ./...` and `go test -race -count=1 ./...`.
+- Passed: `go vet ./...`, `staticcheck ./...`, `govulncheck ./...` (no vulnerabilities), `go mod verify`, `go mod tidy -diff`, full `gofmt` check, and `git diff --check 16e2c3b..HEAD`.
+- Passed ten times: the recovery publication/identity/sync-fault matrix, backup/restore publication/identity/sync-fault matrix, writer-owned backup barrier, applied-failure audit preservation, exact restore authority tuple, and bounded owner status routing.
+- Passed fuzz: `FuzzDecodeSnapshotNeverPanics` for 5 seconds (257,140 executions) and `FuzzStorageDecoders` for 5 seconds (45,513 executions).
+- The temporary closed-lock adversarial test used production `AcquireOwner`, `OwnerLock.Close`, `owner.Open`, and a second `AcquireOwner`; it failed as described and was removed after execution.
 
 ## Anti-pattern checklist
 
-1. Dead code: **FAIL** — the unanchored rename primitive has no caller, and `owner.Compose` is test-only.
-2. Synthetic-fixture test: **PASS** — repair tests exercise production filesystem/controller paths.
+1. Dead code: **PASS** — obsolete publication APIs are removed; `owner.Open` is the production composition entrypoint for the dependent server package.
+2. Synthetic-fixture test: **PASS** — repair tests exercise production filesystem, controller, persistence, and owner paths.
 3. Silent empty return: **PASS** — no relevant silent empty-return pattern found.
-4. FR coverage: **FAIL** — FR-021/FR-023 fail at the publication-to-directory-sync race.
-5. Frozen surface: **PASS** — no mission contract/spec file changed in `ee1961f`.
-6. Locked decision: **FAIL** — ordinary success can be reported without syncing the actual published destination parent.
-7. Shared-file ownership: **PASS** — `ee1961f` is isolated on WP05 ancestry.
-8. Production fragility: **FAIL** — a benign pathname replacement between two supposedly anchored phases yields false success/location evidence.
+4. FR coverage: **FAIL** — exclusive ownership is not actually retained across owner runtime construction.
+5. Frozen surface: **PASS** — no mission contract/spec file changed in `0b1c0aa`.
+6. Locked decision: **FAIL** — the one-owner process invariant can be bypassed with a closed lock object.
+7. Shared-file ownership: **PASS** — `0b1c0aa` is isolated to WP05 ancestry.
+8. Production fragility: **FAIL** — a valid-looking but released capability starts a runtime while another owner holds the same database.
