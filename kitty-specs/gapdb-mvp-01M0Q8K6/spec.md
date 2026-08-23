@@ -292,7 +292,7 @@ Human-readable text is advisory. Automation branches only on stable fields.
 - **SC-005**: Scans and resumable watches reconcile without missed or silently reordered events, including explicit recovery after watch lag and compaction.
 - **SC-006**: Expired records never authorize a lease or block `PutIfAbsent` at or after their expiry, including across restart and clock-adjustment tests.
 - **SC-007**: The benchmark suite meets NFR-001, NFR-002, NFR-003, and NFR-010 on the documented project reference machine.
-- **SC-008**: The originating application's Phase 1 storage contract runs unchanged or through a documented thin adapter against both SQLite and Gapdb, and SQLite remains selected until all correctness and authority-safety gates pass.
+- **SC-008**: This repository ships a versioned portable Phase 1 storage contract and a passing Gapdb adapter. SQLite remains selected in the originating application until a separate production-adoption gate runs that same contract against its real SQLite and Gapdb adapters, all correctness and authority-safety evidence is complete, and a human explicitly approves the switch.
 - **SC-009**: A reviewer can account for every persisted file and wire field through a versioned format specification and corresponding compatibility test.
 
 ## Spec Review Gate
