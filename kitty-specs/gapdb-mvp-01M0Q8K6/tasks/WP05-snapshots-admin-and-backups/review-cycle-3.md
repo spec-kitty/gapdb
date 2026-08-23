@@ -2,51 +2,45 @@
 affected_files: []
 cycle_number: 3
 mission_slug: gapdb-mvp-01M0Q8K6
-reproduction_command: go test ./internal/admin -run '^TestReviewer' -count=1 -v
-reviewed_at: '2026-08-23T18:33:56Z'
+reproduction_command: go test ./internal/admin -run '^TestReviewerRecoveryPinsPublishedDirectoryThroughSync$' -count=1 -v
+reviewed_at: '2026-08-23T18:52:53Z'
 reviewer_agent: reviewer-renata
 verdict: rejected
 wp_id: WP05
 ---
 
-# WP05 Repair Re-review
+# WP05 Cycle 3 Re-review
 
 Verdict: changes requested.
 
 ## Closure evidence
 
-- Full streaming artifact hashes now reject content mutations before, at, and beyond 64 MiB, bind size/device/inode, and reject a replacement made before revalidation.
-- Static parent/final/dangling symlinks and final-entry creation races are rejected; final publication uses `renameat2(RENAME_NOREPLACE)`.
-- Snapshot barrier and durable-evidence panics before installer entry now report `operation_applied: false`; installer-entry panics remain conservatively applied/ambiguous.
-- Ordinary successful snapshot, compaction, backup, restore, and recovery operations now have audit call paths, and the controller exposes bounded status/configuration fields.
+- Anchored final rename now rejects source-inode replacement and source/destination parent replacement before publication for recovery, backup, and restore.
+- `Controller.Backup` now crosses the real sole-writer WAL barrier; an `AckMemory` revision is flushed/synced and selected consistently before copying while mutation execution remains paused.
+- Applied backup, compaction, restore, recovery, and snapshot failures now preserve results, record an error-outcome audit when possible, return `AUDIT_FAILED_AFTER_APPLY` if that audit fails, and degrade live health.
+- Restore now requires the exact database ID, manifest generation, and current revision tuple and continues to verify backup lineage.
+- The bounded `owner.Runtime` wrapper routes all administrative operations through `Controller`.
 
 ## Blocking findings
 
-1. **Recovery still has source-identity and destination-parent TOCTOU windows at the destructive rename.** In one injected `PointBackupRename/Before` probe, the already-validated WAL pathname was atomically moved aside and replaced with different bytes. `ApplyRecovery` moved the uninspected replacement and returned success. In another, the already-validated external quarantine directory was renamed and replaced by a symlink to a directory inside the database; the WAL was moved through that alias into the database and success was returned. `RENAME_NOREPLACE` protects only the final entry, not the identities of the source or parent directories. Anchor source/destination operations to validated directory descriptors and re-check the moved inode/evidence, or otherwise make identity and ancestry part of the atomic operation. Add source swap and parent swap probes at the exact rename boundary for recovery, backup, and restore.
+1. **The published directory is not pinned continuously from rename through its durability sync.** `RenameNoReplaceAnchored` closes its pinned destination descriptor before the caller invokes `SyncDirAnchored`, which independently reopens the destination path. An adversarial recovery probe let the anchored WAL rename complete, then while the source directory sync hook ran renamed `quarantine` to `quarantine-moved` and created a new real `quarantine` directory. The second `SyncDirAnchored` opened and synced that replacement directory, and `ApplyRecovery` returned ordinary success with `QuarantinedPath: quarantine/<wal>`, while the actual WAL was under `quarantine-moved/<wal>` and its parent directory had not been synced. This violates the requested anchored rename+directory-sync authority boundary and reports false location/durability evidence. Keep the pinned destination descriptor alive through `fsync`, or perform publication plus destination-directory sync in one anchored primitive; verify the moved inode on that same descriptor and return success only if the original published parent was synced. Add the between-rename-and-sync real-directory replacement probe for recovery, backup, and restore.
 
-2. **Controller backup does not establish the required writer-serialized durability barrier.** `Controller.Backup` passes `Barrier: func() error { return nil }` to `CreateBackup` and is not a writer command. After a successful `AckMemory` commit at revision 1, a backup requested for durable revision 1 failed `ADMIN_PRECONDITION_FAILED` because the buffered WAL was never flushed/synced. The operation must pause/serialize against mutations and execute the real WAL barrier before selecting/copying authority; it must not rely on the caller already having made the revision durable.
-
-3. **Applied persistence failures bypass audit, result preservation, and health degradation.** The controller audits only when the underlying operation returns nil. A backup `RenameNoReplace` after-phase fault published the verified destination but returned empty metadata, left the state `ready`, and wrote no backup audit entry. A compaction failure on the second removal reported partial application but left the state `ready` and wrote no compact failure audit. The same early-return shape exists for restore and recovery rename/directory-sync failures; `Controller.ApplyRecovery` neither serializes nor inspects applied errors to degrade health. Every state-changing result, including failed-after-apply paths, must preserve the applied result, append a result/error audit when possible, and degrade until verification; if that audit fails, retain `AUDIT_FAILED_AFTER_APPLY` without erasing the original applied evidence.
-
-4. **Restore lacks exact authority/revision preconditions.** `RestoreRequest` carries only `ExpectedDatabaseID`; `Controller.Restore` does not require or validate expected manifest generation or current revision before creating the restored database. This does not satisfy the guarded-administration/current-revision revalidation requested by FR-020/T026 and allows a stale restore request to apply after live authority has advanced. Add exact current database ID, manifest generation, and revision preconditions, while continuing to verify backup lineage and durable revision.
-
-5. **The new production controller remains unintegrated dead code.** A complete non-test call-site search finds `NewController` and every controller operation only in `internal/admin/admin_test.go`; no production server, owner, or administrative entry point constructs or calls it. This still fails the review prompt's explicit dead-code gate and means the new barrier/audit/precondition routing is not the application's live path. Add a production composition seam (or narrow the WP surface so its exported operations have a live caller) and exercise that seam with black-box tests.
+2. **The explicit dead-code gate still fails.** `faultfs.FS.RenameNoReplace` and `(*faultfs.OS).RenameNoReplace` now have zero production callers after all publication paths moved to `RenameNoReplaceAnchored`. Separately, `owner.Compose` has no non-test caller; the only construction is in `internal/owner/runtime_test.go`, so the newly introduced top-level runtime is not yet composed by a live owner/server entry point. Remove the superseded unanchored primitive and connect `owner.Runtime` from a production owner composition point (with a black-box routing test), or otherwise narrow the public surface so each new function/module has a production caller.
 
 ## Independent evidence
 
 - Go toolchain: `go1.26.7 linux/amd64`.
 - Passed: `go test ./...`, `go test -race ./...`, `go vet ./...`, `staticcheck ./...`, `govulncheck ./...`, `go mod verify`, `go mod tidy -diff`, full `gofmt` check, and `git diff --check`.
-- Passed fuzz: `FuzzDecodeSnapshotNeverPanics` (5 seconds, 488,653 executions) and `FuzzStorageDecoders` (5 seconds, 33,774 executions).
-- Five temporary adversarial tests independently reproduced the source swap, parent swap, missing backup barrier, applied-backup evidence loss, and partial-compaction audit/health defects. They were removed after execution.
+- Passed fuzz: `FuzzDecodeSnapshotNeverPanics` (5 seconds, 513,092 executions) and `FuzzStorageDecoders` (5 seconds, 30,401 executions).
+- The temporary publication-through-sync adversarial test independently failed and was removed after execution. Existing cycle-2/cycle-3 boundary and fault tests passed.
 
 ## Anti-pattern checklist
 
-1. Dead code: **FAIL** — `Controller` and its operations have no production caller.
-2. Synthetic-fixture test: **PASS** — the new tests invoke production paths, though they omit the failing race/applied-error cases above.
+1. Dead code: **FAIL** — the unanchored rename primitive has no caller, and `owner.Compose` is test-only.
+2. Synthetic-fixture test: **PASS** — repair tests exercise production filesystem/controller paths.
 3. Silent empty return: **PASS** — no relevant silent empty-return pattern found.
-4. FR coverage: **FAIL** — FR-020/FR-022/FR-023 fail on stale restore, applied-error audit, and missing backup barrier paths.
-5. Frozen surface: **PASS** — no mission contract/spec file was changed in the lane.
-6. Locked decision: **FAIL** — exact revalidation, outside-database quarantine, durable barrier, and audit-after-state-change MUSTs remain violable.
-7. Shared-file ownership: **PASS** — repair commit `94af5e6` is isolated on WP05 ancestry.
-8. Production fragility: **FAIL** — failed-after-apply admin operations can leave externally changed state while reporting empty results and healthy lifecycle.
-
+4. FR coverage: **FAIL** — FR-021/FR-023 fail at the publication-to-directory-sync race.
+5. Frozen surface: **PASS** — no mission contract/spec file changed in `ee1961f`.
+6. Locked decision: **FAIL** — ordinary success can be reported without syncing the actual published destination parent.
+7. Shared-file ownership: **PASS** — `ee1961f` is isolated on WP05 ancestry.
+8. Production fragility: **FAIL** — a benign pathname replacement between two supposedly anchored phases yields false success/location evidence.
