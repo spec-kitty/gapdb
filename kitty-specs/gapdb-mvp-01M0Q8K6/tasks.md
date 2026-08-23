@@ -34,7 +34,7 @@ WP01 Contracts and scaffolding
 
 | ID | Description | WP | Parallel |
 |---|---|---|---|
-| T001 | Create the Go module, package skeleton, limits, and stable errors | WP01 | No |
+| T001 | Create the Go module, dependency review, package skeleton, limits, and stable errors | WP01 | No |
 | T002 | Define public records, conditions, batches, results, and options | WP01 | Yes |
 | T003 | Implement strict bounded framed JSON protocol codecs | WP01 | Yes |
 | T004 | Freeze protocol and error golden fixtures and decoder tests | WP01 | Yes |
@@ -95,7 +95,7 @@ errors before allocation or mutation.
 **Dependencies**: None  
 **Estimated prompt size**: ~300 lines
 
-T001 Create the Go module, package skeleton, limits, and stable errors (WP01)
+T001 Create the Go module, dependency review, package skeleton, limits, and stable errors (WP01)
 T002 Define public records, conditions, batches, results, and options (WP01)
 T003 Implement strict bounded framed JSON protocol codecs (WP01)
 T004 Freeze protocol and error golden fixtures and decoder tests (WP01)

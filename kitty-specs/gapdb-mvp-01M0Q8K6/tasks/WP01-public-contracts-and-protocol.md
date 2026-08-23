@@ -45,6 +45,7 @@ create_intent:
 - internal/clock/clock.go
 - internal/clock/manual.go
 - tests/compatibility/protocol/golden_test.go
+- docs/evidence/dependencies/x-sys.md
 execution_mode: code_change
 model: ''
 owned_files:
@@ -55,6 +56,7 @@ owned_files:
 - internal/protocol/**
 - internal/clock/**
 - tests/compatibility/protocol/**
+- docs/evidence/dependencies/x-sys.md
 role: implementer
 agent: codex
 tags: []
@@ -95,7 +97,7 @@ execution worktree from the finalized lane graph. Begin with:
 
 `spec-kitty agent action implement WP01 --agent <name>`
 
-### Subtask T001: Create the Go module, package skeleton, limits, and stable errors
+### Subtask T001: Create the Go module, dependency review, package skeleton, limits, and stable errors
 
 **Purpose**: Establish a minimal module and a single source of truth for bounded
 inputs and machine-stable failure classification.
@@ -104,16 +106,22 @@ inputs and machine-stable failure classification.
 
 1. Create module `gapdb` with Go directive `1.26`; pin only
    `golang.org/x/sys/unix` as the planned runtime dependency.
-2. Define public limits/options with the documented defaults: 4 KiB keys, 8 MiB
+2. Before importing `x/sys/unix`, create a dependency review that records the
+   exact version and checksum, upstream provenance, license, vulnerability query
+   and date, narrow `Flock` usage, alternatives considered, and why it removes
+   more risk than it adds. A known unmitigated applicable vulnerability blocks
+   the dependency and this package.
+3. Define public limits/options with the documented defaults: 4 KiB keys, 8 MiB
    values, 16 MiB frames/batches, 1,024 batch operations, 1,000 scan records,
    256 watch events/clients, and bounded history.
-3. Define stable error codes, retry classifications, safe-action tokens, and a
+4. Define stable error codes, retry classifications, safe-action tokens, and a
    structured error type. Human messages must not be control-flow authority.
-4. Validate configurable limits against conservative hard ceilings. Reject zero,
+5. Validate configurable limits against conservative hard ceilings. Reject zero,
    negative-equivalent, overflow, and internally inconsistent configurations.
-5. Keep commands and storage absent from this package; this is vocabulary only.
+6. Keep commands and storage absent from this package; this is vocabulary only.
 
-**Files**: `go.mod`, `go.sum`, `gapdb/options.go`, `internal/protocol/errors.go`.
+**Files**: `go.mod`, `go.sum`, `gapdb/options.go`, `internal/protocol/errors.go`,
+`docs/evidence/dependencies/x-sys.md`.
 
 **Validation**: `go test ./...`; table tests prove every documented default and
 error code. Public errors support `errors.Is`/`errors.As` without losing evidence.
@@ -209,6 +217,7 @@ expiry-boundary behavior, and deterministic UTC/RFC3339Nano formatting.
 - Every wire frame and value is bounded before allocation.
 - Strict decoding rejects ambiguity and unsupported versions.
 - Golden fixtures cover success, streaming, and all stable error families.
+- The sole external dependency has a completed charter-compliant review artifact.
 - `go test ./...` and `go vet ./...` pass.
 - Record completion with `spec-kitty agent tasks mark-status T001 T002 T003 T004 T005 --status done`.
 

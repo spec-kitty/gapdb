@@ -11,6 +11,7 @@
         "WP01"
       ],
       "write_scope": [
+        "docs/evidence/dependencies/x-sys.md",
         "gapdb/options.go",
         "gapdb/types.go",
         "go.mod",
@@ -20,7 +21,9 @@
         "tests/compatibility/protocol/**"
       ],
       "predicted_surfaces": [
-        "api"
+        "api",
+        "artifact-rendering",
+        "legacy-cleanup"
       ],
       "depends_on_lanes": [],
       "parallel_group": 0
@@ -235,7 +238,7 @@
       "parallel_group": 8
     }
   ],
-  "computed_at": "2026-08-23T13:12:41.154305+00:00",
+  "computed_at": "2026-08-23T13:16:31.221259+00:00",
   "computed_from": "dependency_graph+ownership",
   "planning_artifact_wps": []
 }
