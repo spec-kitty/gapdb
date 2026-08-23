@@ -1,7 +1,7 @@
 {
-  "event_count": 167,
-  "last_event_id": "01M0RF3AFS0GM9GQ97379V1H29",
-  "materialized_at": "2026-08-23T23:25:39.194020+00:00",
+  "event_count": 168,
+  "last_event_id": "01M0RF6A1779KBXKGS9Q3BQEE4",
+  "materialized_at": "2026-08-23T23:27:17.031353+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -266,14 +266,14 @@
       }
     },
     "WP08": {
-      "actor": "user",
+      "actor": "codex-review-1",
       "agent": "",
       "agent_profile": "reviewer-renata",
       "agent_profile_version": "1.0",
-      "force_count": 1,
+      "force_count": 2,
       "lane": "planned",
-      "last_event_id": "01M0RF3AFS0GM9GQ97379V1H29",
-      "last_transition_at": "2026-08-23T23:25:39.194020+00:00",
+      "last_event_id": "01M0RF6A1779KBXKGS9Q3BQEE4",
+      "last_transition_at": "2026-08-23T23:27:17.031353+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "WP08 production reliability evidence ready for independent review; verified main-only divergence is governance and project configuration"
