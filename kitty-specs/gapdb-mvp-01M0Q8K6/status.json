@@ -275,6 +275,9 @@
       "last_event_id": "01M0REQ9KBXZFFKR76G87P0J5K",
       "last_transition_at": "2026-08-23T23:19:05.067675+00:00",
       "model": "__resolved_model_absent__",
+      "notes": [
+        "WP08 production reliability evidence ready for independent review; verified main-only divergence is governance and project configuration"
+      ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 2772430,
