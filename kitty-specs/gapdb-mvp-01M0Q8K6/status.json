@@ -165,7 +165,8 @@
       "last_transition_at": "2026-08-23T18:29:29.041461+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
-        "Ready for review: snapshots, guarded compaction, verified backup/restore, lock-safe offline recovery proposals, and durable audit. Red-first API commands failed on undefined snapshot/compaction/backup/admin/engine seams before implementation; all focused/full/race/static/security/fuzz gates now pass. Forced only across verified governance/status-only main ancestry."
+        "Ready for review: snapshots, guarded compaction, verified backup/restore, lock-safe offline recovery proposals, and durable audit. Red-first API commands failed on undefined snapshot/compaction/backup/admin/engine seams before implementation; all focused/full/race/static/security/fuzz gates now pass. Forced only across verified governance/status-only main ancestry.",
+        "Repair cycle 2 ready: full-file evidence identity, symlink-safe atomic no-overwrite destinations, phase-correct snapshot panic evidence, audited snapshot/compact/backup/restore/recovery operations, and live bounded effective-config/status controller. Red regressions and full/race/static/security/fuzz gates pass. Forced only across verified governance/status/review ancestry."
       ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
