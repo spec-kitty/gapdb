@@ -1,167 +1,140 @@
 ---
 affected_files:
-  - tests/performance/benchmark_test.go
-  - tests/performance/recovery_test.go
-  - tests/adoption/contract.go
-  - tests/adoption/manifest.go
-  - tests/adoption/manifest_test.go
+  - tests/adoption/evidence.go
   - tests/adoption/docs_test.go
   - docs/evidence/performance/results.json
   - docs/evidence/performance/raw.txt
-  - docs/evidence/performance/release-manifest.json
-  - docs/evidence/performance/README.md
 cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
-reproduction_command: GAPDB_REFERENCE_ACCEPTANCE=1 go test ./tests/performance -run TestReferencePerformanceProfile -count=1 -v
-reviewed_at: '2026-08-24T01:23:55Z'
+reproduction_command: go test ./tests/adoption -run TestSemanticEvidenceAdversarialRewriteMatrix -count=1 -v
+reviewed_at: '2026-08-24T02:10:00Z'
 reviewer_agent: reviewer-renata
 verdict: rejected
 wp_id: WP09
 ---
 
-# WP09 Independent Review
+# WP09 Cycle-2 Independent Re-review
 
-Verdict: changes requested. The numerical workload passes on the current host,
-the in-repository Gapdb adapter passes all 14 declared scenarios, and the
-automated adoption result correctly keeps SQLite selected and human approval
-false. Three evidence-authority gaps prevent WP09 from satisfying T045, T047,
-and T050.
+Verdict: changes requested. Commits `3a98149` and `83979e4` close the three
+original review findings at their production boundaries. One new semantic
+evidence gap still permits coherently re-signed, nonvolatile performance claims
+to mark the schema-v2 release manifest complete.
 
-## Blocking findings
+## Blocking finding
 
-### 1. The benchmark does not prove its concurrency or durable-sync claims
-
-**Severity:** High  
-**Affected code:** `tests/performance/benchmark_test.go`, reference evidence
-
-`measureGets` releases eight readers and the writer through one start channel,
-but it has no ready/active barrier proving that the writer began before any
-reader samples. `measureWrites` starts eight background readers and immediately
-begins writer samples without waiting for even one read from each goroutine.
-The ordinary `BenchmarkReferenceUnixSocket` is weaker still: its `Get`
-subbenchmark has readers but no writer, while each write subbenchmark has a
-writer but no concurrent readers. A scheduler can therefore produce measured
-windows that never contain the required eight simultaneous readers plus one
-writer.
-
-Durability evidence is also synthesized rather than observed:
-`SuccessfulDurableBarriers` is assigned `durable_put.samples + 20`. No counter,
-filesystem observation, or fault seam supplies those 20 or proves the 128
-sampled calls each crossed an OS sync. The public `StatsResult.SyncCount` field
-has no production update site, and the reference harness never reads it. A
-string literal declares `Filesystem: "os_fsync_enabled"`; no committed deletion
-or substitution test fails if a fake filesystem, disabled sync, or direct
-in-process data path replaces the required production path. This directly
-misses T045's explicit validation requirement while the performance README
-claims those substitutions are rejected.
-
-The evidence is not reproducible as declared. A fresh official run passed all
-thresholds but produced snapshot revision 1484 versus checked-in 1473. That
-field is not listed as volatile. The difference comes from the unbounded
-background memory writer: its scheduling changes how many revisions exist
-before recovery. Add explicit participant-ready and operation-start evidence,
-measure a bounded deterministic mixed window, derive sync counts from an
-independent production observation/fault-sensitive seam, and make the specified
-substitutions fail. Either make revision/count evidence deterministic or mark
-and validate all legitimately volatile fields without weakening workload
-authority.
-
-### 2. The response-loss adoption scenario never loses a response
+### Performance evidence decoding is not strict or exact for nonvolatile authority
 
 **Severity:** High  
-**Affected code:** `tests/adoption/contract.go`, `Backend`, `runResponseLoss`
+**Affected code:** `tests/adoption/evidence.go`, `validatePerformanceEvidence`,
+`validateRawEvidence`
 
-`runResponseLoss` receives a definite successful durable `Put` response and
-then discards only the returned revision before a graceful `Restart`. It does
-not interrupt or lose a response, receive an ambiguity error, or reconcile an
-operation whose application is unknown. The backend contract exposes no
-response-loss/fault seam, so an external SQLite or Gapdb adapter cannot make
-this scenario exercise the required ambiguity at all. Consequently the checked
-`adoption.json` reports `response-loss/reconcile` as passed without testing
-response loss, and a backend can satisfy this case with an ordinary successful
-put/restart/get sequence.
+The new caller-side `ReleaseAuthority` correctly prevents an evidence file from
+rewriting its own source commit, configuration, command, or criterion mapping.
+However, several nonvolatile fields are not part of those pins and their kind
+decoders accept altered values:
 
-Expose a portable response-loss operation or runner-controlled cut point that
-both external adapters can implement without depending on Gapdb internals.
-Require loss/ambiguity to be observed, restart independently, reconcile the
-exact key/value and authority evidence, and make a backend that returns an
-ordinary successful response fail this scenario. Keep the current strict
-scenario-ID/backend/version validation and explicit missing-SQLite state.
+1. `validatePerformanceEvidence` requires only
+   `observed_wal_syncs >= successful_durable_barriers`. A temporary reviewer
+   probe changed the checked result from the independently reproduced value 156
+   to 157, recomputed its SHA-256/size in the outer manifest, and
+   `ValidateReleaseManifest` returned success. The repair's own adversarial
+   matrix tests only 150, which is below 151 and therefore does not deletion-test
+   an altered but plausible sync claim.
+2. `validateRawEvidence` decodes the one-line `REFERENCE_RESULT` once but never
+   performs a second decode requiring EOF. Appending a second JSON value (`{}`)
+   on that same physical line, then recomputing the raw evidence digest/size,
+   was accepted by the public manifest validator.
+3. The raw semantic check decodes `schema_version` but never validates it. A
+   coherent `schema_version:1` to `schema_version:2` rewrite was also accepted.
+   The same branch omits exact checks for other raw workload identity fields
+   already present in the type, including seed, transport, filesystem, and
+   socket mode.
 
-### 3. The release manifest authenticates bytes but not their semantic authority
+All three attacks used the checked manifest and caller-side authority, changed
+only the copied evidence plus its outer digest/size, and passed
+`ValidateReleaseManifest`. The temporary reviewer probe was removed afterward.
+This contradicts T050's stale/mismatched evidence gate and the fresh repair
+claim that strict kind decoders reject coherent sync/workload/raw rewrites.
 
-**Severity:** Critical  
-**Affected code:** `tests/adoption/manifest.go`, manifest tests and checked evidence
+Require EOF after decoding the raw `REFERENCE_RESULT`; validate its schema,
+seed, transport, filesystem, socket mode, metric ordering, recovery target, and
+all other nonvolatile identity/outcome fields to the same standard as
+`results.json`. Bind the exact independently reproduced WAL-sync count (156 for
+this recorded run) or another explicit caller-side expected relation that
+rejects both lower and higher fabricated counts. Add committed coherent rewrite
+probes for 155/157, raw trailing JSON, schema, seed, transport, filesystem, and
+socket mode; deleting any new guard must make the focused test fail.
 
-The checked release manifest labels every evidence reference with WP09 commit
-`eabfc76`, including `docs/evidence/crash/results.json`; that crash document
-internally identifies the tested code as `d34eada`. `ValidateReleaseManifest`
-compares only the outer reference's copied `code_commit`, count, and digest. It
-does not strictly decode the referenced result, compare its internal commit,
-configuration, command, scenario/schedule count, or claimed outcome, or verify
-that the evidence is relevant to the criterion that cites it.
+## Original findings independently closed
 
-An independent temporary probe copied the checked manifest/evidence, changed
-the crash document's internal `code_under_test_commit` to all zeroes, recomputed
-the referenced SHA-256 and byte count, and called `ValidateReleaseManifest`.
-The validator returned success. The probe was then removed. The same design
-trusts `ObservedCount`, `coverage`, and every criterion's `status` as manifest
-literals. The committed deletion tests use synthetic `one\n`/`two\n` files and
-prove only envelope hashing, not SC-001--SC-009 or NFR-001--NFR-012 evidence
-meaning. Thus stale or unrelated evidence can be re-signed locally and still
-mark `mvp_status: complete`.
-
-Define strict schemas/validators for each evidence kind, bind their internal
-code/config/command/count/result identity to the release manifest, and enforce
-criterion-to-evidence relevance. Add checked-in adversarial tests that mutate
-each semantic field, recompute the outer digest/size, and still fail. Preserve
-the correct separation already present: MVP completion may coexist with SQLite
-pending, `production_backend: sqlite`, and `adoption_status: not_approved`.
-
-## Confirmed working behavior
-
-- The official reference test used a real `0600` Unix socket, 100,000 reported
-  live records, 1,024-byte generated values, snapshot plus exactly 10,000 later
-  mutations, and public reopen/status/get. On this host, Get p95 was 0.953 ms,
-  memory Put p95 0.545 ms, durable Put p95 2.953 ms, and readiness 539.163 ms;
-  all declared thresholds passed.
-- The ordinary 100-iteration benchmark ran through the public socket API and
-  reported allocations for Get, memory Put, and durable Put.
-- The Gapdb portable adapter passes all 14 current scenarios; the intentionally
-  empty backend fails. Exact scenario-set, duplicate-ID, backend, contract
-  version, and pass-state validation is present.
-- Missing SQLite evidence remains explicit and cannot set human approval or the
-  production backend to Gapdb through `EvaluateAdoption`.
-- Documentation links resolve, the locked operation/limit/permission tokens are
-  present, and memory acknowledgement is explicitly documented as not durable.
+- **Benchmark concurrency and sync provenance:** closed. All three reference
+  windows use fixed ready -> active -> work barriers for exactly eight readers
+  and one writer, with fixed operation budgets. The ordinary benchmark uses the
+  same mixed-window runner. The pass-through `faultfs.OS` is the exact
+  configured production filesystem and records after-events only following a
+  successful underlying `Sync`. The real public socket inode is checked at
+  `0600`, every client exposes that same `SocketPath`, and fake/no-sync/direct
+  substitutions fail. A Before-sync injection produces no After event and no
+  durable success.
+- **Deterministic reference profile:** closed. Two fresh official runs both
+  reported 151 successful durable operations, 156 successful WAL syncs,
+  snapshot revision 1329, exactly 10,000 later WAL commits, exact fixed window
+  budgets, and all four targets passing. Only documented latency/readiness
+  fields varied. The ordinary 100-iteration benchmark reproduced all three
+  operations and allocations through the Unix client.
+- **Response-loss reconciliation:** closed. The Gapdb adapter writes a canonical
+  durable request over a raw Unix connection, closes the read direction before
+  decoding any response, returns only stable portable ambiguity, independently
+  observes request acceptance, restarts, and reconciles exact key/value/public
+  revision plus durable-through authority. Ordinary success, no apply, wrong
+  value, and weak durable authority all fail. The seam remains portable for an
+  external adapter.
+- **Manifest source/criterion authority:** closed except for the blocker above.
+  Schema v2 uses caller-side pins not decoded from artifacts; performance/raw/
+  adoption evidence binds to `3a98149`, inherited crash evidence binds internally
+  and externally to `d34eada`, and the criterion command/evidence map is exact
+  for SC-001--SC-009 and NFR-001--NFR-012. Commit/config/command/count/status,
+  crash schedule/class/hook, adoption scenario/SQLite/human, document-token,
+  deletion, symlink, path, oversize, and ordinary byte-tamper probes fail.
+- **Adoption and docs:** SQLite remains `production_backend: sqlite`, technical
+  gates remain incomplete without the external result, and automated/human
+  adoption remains `not_approved`. Links, format tokens, operation names,
+  limits, permissions, memory-durability warning, and recovery references pass.
 
 ## Independent gates
 
 - Toolchain: `go1.26.7 linux/amd64`.
-- Passed: `go test -count=1 ./...` and `go test -race -count=1 ./...`.
+- Focused performance/adoption suites passed 10 times normally and 10 times
+  under `-race`.
+- Official reference profile passed twice; Get p95 was 0.637/0.808 ms, memory
+  Put p95 0.537/0.502 ms, durable Put p95 1.648/1.270 ms, and recovery readiness
+  400.725/545.184 ms. Nonvolatile budgets, revisions, durable successes, and
+  sync observations were identical.
+- The ordinary reference benchmark passed at `-benchtime=100x` with allocation
+  output for Get, memory Put, and durable Put.
+- Passed uncached: `go test -count=1 ./...` and
+  `go test -race -count=1 ./...`.
 - Passed: `go vet ./...`, `staticcheck ./...`, `govulncheck ./...` (no
-  vulnerabilities), `go mod verify`, full `gofmt` check, and `git diff --check`.
-- Passed focused: adoption suite, official reference acceptance test, and the
-  ordinary reference benchmark at `-benchtime=100x`.
-- Passed one-second fuzz runs: snapshot decode (168,981 executions), storage
-  decoders (30,775), combined wire/storage decoders (25,033), cursor decoder
-  (25,985), and backup verifier (7,822).
-- The only untracked lane state is the runtime-owned `.spec-kitty/review-lock.json`;
-  the temporary semantic-manifest reviewer probe was removed.
+  vulnerabilities), `go mod verify`, `go mod tidy -diff`, complete `gofmt`, and
+  `git diff --check`.
+- Passed fuzz: snapshot decoder (374,778 executions), storage decoders (21,852),
+  combined wire/storage (34,467), cursor decoder (19,944), and backup verifier
+  (15,996).
+- No reviewer product change or temporary probe remains in lane-i.
 
 ## WP anti-pattern checklist
 
-1. **Dead code:** PASS for the exported adapter runner and manifest validator.
-2. **Synthetic-fixture test:** FAIL -- manifest authority tests validate
-   arbitrary tiny files rather than the semantics of release evidence.
+1. **Dead code:** PASS -- the exported contract/manifest surfaces have live
+   callers in the review/release harness.
+2. **Synthetic-fixture test:** PASS -- benchmark, response-loss, and manifest
+   tests invoke the production socket/filesystem/validator paths.
 3. **Silent empty return:** PASS.
-4. **FR coverage:** FAIL -- response-loss reconciliation and authoritative
-   benchmark concurrency/sync evidence are not exercised.
-5. **Frozen surface:** PASS -- WP09 does not alter approved protocol/storage
-   implementation contracts.
-6. **Locked decision:** FAIL -- stale evidence can mark MVP complete and the
-   benchmark claims successful syncs without an independent observation.
-7. **Shared-file ownership:** PASS -- WP09 changes are isolated to its evidence,
-   documentation, and test harness surfaces over approved ancestry.
-8. **Production fragility:** PASS -- no new production data-path implementation
-   is introduced; the blockers are release/adoption authority defects.
+4. **FR coverage:** FAIL -- T050/NFR evidence authority does not strictly reject
+   coherent nonvolatile raw/sync rewrites.
+5. **Frozen surface:** PASS.
+6. **Locked decision:** FAIL -- a coherently altered evidence document can still
+   support `mvp_status: complete`.
+7. **Shared-file ownership:** PASS -- repairs remain within WP09-owned test,
+   evidence, and documentation surfaces over approved ancestry.
+8. **Production fragility:** PASS -- no product request/owner code is changed by
+   this repair.
