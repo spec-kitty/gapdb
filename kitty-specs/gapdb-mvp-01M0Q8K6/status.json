@@ -1,7 +1,7 @@
 {
-  "event_count": 198,
-  "last_event_id": "01M0RREEC0EKHVC90PBCYD540N",
-  "materialized_at": "2026-08-24T02:09:00.800513+00:00",
+  "event_count": 200,
+  "last_event_id": "01M0RRENWJC5M93JCD9Z3XSN22",
+  "materialized_at": "2026-08-24T02:09:08.497648+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -12,9 +12,9 @@
     "claimed": 0,
     "done": 0,
     "for_review": 0,
-    "in_progress": 0,
+    "in_progress": 1,
     "in_review": 0,
-    "planned": 1
+    "planned": 0
   },
   "work_packages": {
     "WP01": {
@@ -305,22 +305,23 @@
       }
     },
     "WP09": {
-      "actor": "codex-review-2",
-      "agent": "",
-      "agent_profile": "reviewer-renata",
+      "actor": "codex",
+      "agent": "codex-review-2",
+      "agent_profile": "implementer-ivan",
       "agent_profile_version": "1.0",
       "force_count": 4,
-      "lane": "planned",
-      "last_event_id": "01M0RREEC0EKHVC90PBCYD540N",
-      "last_transition_at": "2026-08-24T02:09:00.800513+00:00",
+      "lane": "in_progress",
+      "last_event_id": "01M0RRENWJC5M93JCD9Z3XSN22",
+      "last_transition_at": "2026-08-24T02:09:08.497648+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "Implemented real Unix-socket/fsync performance acceptance, portable adoption contract, living format references, and fail-closed bounded release manifest; full normal/race/static/security/fuzz gates pass. Forced only after verifying 267 main-only commits touch governance/tooling/status artifacts, while lane-i retains the approved WP08 product lineage.",
         "Reattach canonical WP09 review after runtime cycle wrapper defect",
-        "Cycle 2: proved fixed 8-reader/1-writer mixed windows and real OS WAL syncs; added portable real wire-response ambiguity/restart reconciliation; bound every release input to strict caller-pinned semantic authority with coherent-rewrite matrix. Official profile repeated with stable authority fields; full normal/race/static/security/fuzz gates pass. Forced only after verifying all 278 main-only commits touch governance/tooling/status paths and lane-i retains the approved product lineage."
+        "Cycle 2: proved fixed 8-reader/1-writer mixed windows and real OS WAL syncs; added portable real wire-response ambiguity/restart reconciliation; bound every release input to strict caller-pinned semantic authority with coherent-rewrite matrix. Official profile repeated with stable authority fields; full normal/race/static/security/fuzz gates pass. Forced only after verifying all 278 main-only commits touch governance/tooling/status paths and lane-i retains the approved product lineage.",
+        "Reattach canonical WP09 semantic review after runtime URI failure"
       ],
       "provider": "__resolved_provider_absent__",
-      "role": "reviewer",
+      "role": "implementer",
       "shell_pid": 0,
       "shell_pid_created_at": "1787486609.27",
       "subtasks": {
