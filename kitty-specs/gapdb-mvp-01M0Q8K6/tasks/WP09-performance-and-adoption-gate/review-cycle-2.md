@@ -5,121 +5,82 @@ affected_files:
 cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
 reproduction_command: go test ./tests/adoption -run TestSemanticEvidenceAdversarialRewriteMatrix -count=1
-reviewed_at: '2026-08-24T02:28:36Z'
+reviewed_at: '2026-08-24T02:42:28Z'
 reviewer_agent: reviewer-renata
-verdict: rejected
+verdict: approved
 wp_id: WP09
 ---
 
 # WP09 Final Independent Re-review
 
-Verdict: changes requested for one narrow deletion-sensitivity blocker. Final
-repair `50f68d5` closes every previously demonstrated semantic rewrite, and all
-functional and repository-wide gates pass. The new allocation upper-bound
-guards are correct but have no test that would fail if those exact guards were
-removed.
+Verdict: approved. Repair `0106707` closes the sole remaining deletion-
+sensitivity blocker without weakening the previously approved benchmark,
+adoption, evidence-authority, or documentation behavior.
 
-## Blocking finding
+## Allocation-ceiling closure
 
-### The new allocation ceilings are not deletion-tested
+- The committed adversarial matrix coherently rewrites the results metric and
+  the raw `REFERENCE_RESULT` allocation value to `1,000,001`, then recomputes
+  the corresponding outer digest and size. Both inputs are rejected by
+  `ValidateReleaseManifest`.
+- An independent deletion probe removed only the results-evidence
+  `AllocsPerOp > 1_000_000` clause. The results allocation subtest failed while
+  the raw allocation subtest passed.
+- A second independent deletion probe restored the first guard and removed
+  only the raw-evidence clause. The raw allocation subtest failed while the
+  results allocation subtest passed.
+- Both guards were restored; the complete semantic matrix passed and lane-i
+  returned to the exact committed tree.
+- A temporary reviewer-only test rewrote the results JSON through the
+  production test helper and decoded its seed as `uint64`. The value remained
+  exactly `5134473304279631186`. Inspection confirms `json.Decoder.UseNumber`
+  retains integer lexemes during coherent re-signing. The probe was removed.
 
-**Severity:** Medium
-**Affected code:** `tests/adoption/evidence.go:190`,
-`tests/adoption/evidence.go:274`, `tests/adoption/docs_test.go`
+These checks establish both error-path reachability and independence: deleting
+either upper ceiling is detected by exactly its corresponding committed case.
 
-The repair adds `metric.AllocsPerOp > 1_000_000` rejection to both
-`validatePerformanceEvidence` and `validateRawEvidence`. That is an appropriate
-bound for a machine-readable release claim. However, the adversarial matrix's
-only allocation mutation changes raw evidence from 882 to 0. Zero was already
-rejected by the pre-existing `metric.AllocsPerOp <= 0` branch; there is no
-results-evidence allocation mutation and no value above the new ceiling.
+## Preserved semantic and runtime evidence
 
-An independent deletion probe temporarily removed only the two new
-`> 1_000_000` clauses and ran:
-
-```text
-go test ./tests/adoption -run TestSemanticEvidenceAdversarialRewriteMatrix -count=1
-```
-
-The complete matrix remained green. The clauses were restored immediately and
-the lane returned to its exact committed state. Thus deleting the final
-repair's upper-bound behavior is invisible to the committed suite, contrary to
-the explicit final-review requirement to deletion-test every new guard and the
-review skill's error-path reachability gate.
-
-Add two coherent re-signing cases: change `allocs_per_op` to `1_000_001` in
-`performance-results` and in the raw `REFERENCE_RESULT`, recompute the
-corresponding outer SHA-256/size, and require `ValidateReleaseManifest` to
-reject both. Temporarily deleting either upper-bound clause must then fail its
-own focused subtest. Keep the existing zero-allocation tests as lower-bound
-coverage.
-
-## Prior findings independently closed
-
-- **Exact nonvolatile semantic authority:** closed. Coherent
-  `observed_wal_syncs` rewrites to 155 and 157 fail for both results and raw
-  evidence. The independently compiled validator pins 156 rather than deriving
-  it from mutable evidence. Raw decoding requires EOF and rejects mutations to
-  schema, seed, transport, filesystem, socket mode, metric identity/order/
-  budgets/outcome, window identity/budgets/readiness/activity, recovery
-  revision/count/target/order/outcome, and reference outcome.
-- **Real reference run:** closed. Two fresh runs both produced exactly 151
-  durable successes, 156 successful WAL-sync after-events, snapshot revision
-  1329, and exactly 10,000 later WAL commits. Both retained exact eight-reader/
-  one-writer window budgets and passed all latency/recovery targets.
-- **Socket/concurrency/sync provenance:** closed. Reference and ordinary windows
-  use the ready -> active -> work barrier; filesystem identity is the exact
-  pass-through `faultfs.OS`; public clients bind the real `0600` Unix socket;
-  fake/no-sync/direct substitutions fail; a Before-sync fault yields neither an
-  After event nor durable success.
-- **Response loss:** closed. The adapter writes a canonical durable raw Unix
-  request, closes response reading before decode, returns portable ambiguity,
-  independently observes acceptance, restarts, and reconciles exact value,
-  public revision, and durable authority. Ordinary success, no application,
-  wrong value, and insufficient durable-through evidence all fail.
-- **Manifest trust:** closed apart from the deletion-test blocker. Caller-side
-  authority pins are not artifact-derived; performance/raw/adoption bind to
-  `3a98149`, crash binds internally and externally to `d34eada`, and exact
-  criterion relevance covers SC-001--SC-009 and NFR-001--NFR-012. Checked
-  evidence deletion, ordinary tampering, coherent source/config/command/count/
-  status rewrites, crash schedule/class/hook changes, adoption scenario/SQLite/
-  human changes, and document token changes fail closed.
-- **Adoption/docs:** SQLite remains the production backend and adoption remains
-  `not_approved`, including when technical results could be complete. Links,
-  help/schema examples, operations, limits, permissions, format identifiers,
-  and the memory-not-durable warning pass their focused checks.
+- The complete coherent-rewrite matrix continues to reject source/config/
+  command/count/status changes, exact-sync changes to 155 or 157, raw trailing
+  JSON, schema/seed/transport/filesystem/socket changes, metric identity/order/
+  budget/outcome changes, recovery revisions/count/target/order/outcome changes,
+  adoption scenario/SQLite/human changes, and forged criterion mappings.
+- Two fresh official reference-profile runs retained exactly 100,000 live
+  1-KiB records, eight active readers plus one writer, 151 durable successes,
+  156 observed successful WAL-sync after-events, snapshot revision 1329, and
+  exactly 10,000 later WAL commits. All latency and readiness targets passed.
+- The prior real-socket, pass-through OS filesystem, sync-fault, response-loss,
+  restart reconciliation, caller-pinned release authority, and SQLite
+  `not_approved` adoption findings remain closed under the full suites.
 
 ## Independent verification
 
 - Toolchain: `go1.26.7 linux/amd64`.
-- Focused performance/adoption suites passed 10 times normally and 10 times
-  under `-race`.
-- Official reference profile passed twice: Get p95 0.692/0.790 ms, memory Put
-  p95 0.446/0.680 ms, durable Put p95 1.318/2.657 ms, readiness
-  433.697/547.261 ms. Nonvolatile counts and revisions were identical.
-- Ordinary `BenchmarkReferenceUnixSocket` passed at `-benchtime=100x` with
-  `ns/op`, `B/op`, and `allocs/op` for all three operations.
-- Passed uncached: `go test -count=1 ./...` and
+- Passed the complete semantic rewrite/manifest matrix and focused performance
+  and adoption packages 10 times normally and three times under `-race`.
+- Passed the official reference profile twice. Get p95 was 0.648/0.835 ms,
+  memory Put p95 0.520/0.692 ms, durable Put p95 1.058/2.349 ms, and recovery
+  readiness 507.442/366.456 ms.
+- Passed uncached `go test -count=1 ./...` and
   `go test -race -count=1 ./...`.
-- Passed: `go vet ./...`, `staticcheck ./...`, `govulncheck ./...` (no
-  vulnerabilities), `go mod verify`, `go mod tidy -diff`, complete `gofmt`,
-  `git diff --check`, documentation x10, protocol schema, and CLI/help tests.
-- Passed fuzz: snapshot decoder (374,358 executions), storage decoders (27,955),
-  wire/storage decoder (21,641), cursor decoder (25,649), and backup verifier
-  (14,357).
-- Temporary deletion mutations were restored; no reviewer product/probe change
-  remains in lane-i.
+- Passed documentation-link checks x10, protocol schema, CLI/help, `go vet`,
+  `staticcheck`, `govulncheck` (no vulnerabilities), `go mod verify`,
+  `go mod tidy -diff`, complete `gofmt`, and `git diff --check`.
+- Passed two-second fuzz gates for snapshot, storage, wire/storage, cursor, and
+  backup verification decoders (respectively 108,941; 21,526; 18,053; 16,552;
+  and 4,447 executions in this run).
+- No reviewer implementation or probe artifact remains in lane-i.
 
 ## WP anti-pattern checklist
 
 1. **Dead code:** PASS.
-2. **Synthetic-fixture/deletion sensitivity:** FAIL -- removing both newly added
-   allocation upper-bound guards leaves the complete semantic rewrite matrix
-   green.
+2. **Synthetic-fixture/deletion sensitivity:** PASS; each allocation ceiling
+   has a coherent outer rewrite and independent deletion proof.
 3. **Silent empty return:** PASS.
-4. **FR coverage:** FAIL narrowly for T050's bounded semantic evidence guard.
+4. **FR coverage:** PASS for T045-T050 and SC-001-SC-009/NFR-001-NFR-012.
 5. **Frozen surface:** PASS.
-6. **Locked decision:** PASS for shipped behavior; the blocker is missing proof
-   that the bound cannot regress.
+6. **Locked decision:** PASS; SQLite remains production and human approval is
+   not artifact-mutable.
 7. **Shared-file ownership:** PASS.
 8. **Production fragility:** PASS.
