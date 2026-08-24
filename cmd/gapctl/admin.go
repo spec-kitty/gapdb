@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 func runAdminCommand(options globalOptions, command string, arguments []string, stdin io.Reader, stdout io.Writer) int {

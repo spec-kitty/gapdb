@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 func TestDocumentedDefaults(t *testing.T) {

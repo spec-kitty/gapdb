@@ -2,6 +2,6 @@
 
 package main
 
-import "gapdb/internal/faultfs"
+import "github.com/spec-kitty/gapdb/internal/faultfs"
 
 func evidenceFS() faultfs.FS { return nil }

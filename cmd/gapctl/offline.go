@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/admin"
-	"gapdb/internal/faultfs"
-	"gapdb/internal/protocol"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/admin"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/internal/protocol"
 )
 
 const maxProposalBytes = 64 << 10

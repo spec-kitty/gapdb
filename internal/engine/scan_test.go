@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/clock"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/clock"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 func testDatabaseID(t *testing.T, value string) persist.DatabaseID {

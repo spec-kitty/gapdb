@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/clock"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/clock"
 )
 
 func TestSingleKeyConditionsAndFailedConditionsConsumeNothing(t *testing.T) {

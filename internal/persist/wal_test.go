@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
 )
 
 func TestWALHeaderFixedFormat(t *testing.T) {

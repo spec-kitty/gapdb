@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/protocol"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/protocol"
 )
 
 func runDataCommand(options globalOptions, command string, arguments []string, stdin io.Reader, stdout io.Writer) int {

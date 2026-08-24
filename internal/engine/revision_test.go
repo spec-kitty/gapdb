@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"gapdb/gapdb"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 func TestRangeAllocatorAcceptsGapsRefillsAndNeverReuses(t *testing.T) {

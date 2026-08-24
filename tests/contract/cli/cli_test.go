@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 type commandResult struct {

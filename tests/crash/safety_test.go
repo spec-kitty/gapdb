@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/faultfs"
-	"gapdb/internal/persist"
-	"gapdb/internal/protocol"
-	"gapdb/internal/server"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/internal/protocol"
+	"github.com/spec-kitty/gapdb/internal/server"
 )
 
 func boundedOptions() gapdb.Options {

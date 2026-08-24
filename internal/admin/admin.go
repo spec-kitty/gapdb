@@ -3,7 +3,7 @@ package admin
 import (
 	"errors"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 // RunningView is a bounded model-friendly administrative status surface.

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"gapdb/gapdb"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 // DurableAdminCut is authority selected by the sole writer after its real WAL

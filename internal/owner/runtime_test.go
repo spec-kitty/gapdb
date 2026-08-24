@@ -7,12 +7,12 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"gapdb/gapdb"
-	"gapdb/internal/admin"
-	"gapdb/internal/engine"
-	"gapdb/internal/faultfs"
-	"gapdb/internal/owner"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/admin"
+	"github.com/spec-kitty/gapdb/internal/engine"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/internal/owner"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 type logStub struct {

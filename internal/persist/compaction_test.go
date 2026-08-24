@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gapdb/gapdb"
-	"gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
 )
 
 func TestPlanAndRunCompactionOnlyRemovesKnownSupersededFiles(t *testing.T) {

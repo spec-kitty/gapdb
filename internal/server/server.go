@@ -11,11 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/faultfs"
-	"gapdb/internal/owner"
-	"gapdb/internal/persist"
-	"gapdb/internal/protocol"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/internal/owner"
+	"github.com/spec-kitty/gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/internal/protocol"
 )
 
 type Config struct {

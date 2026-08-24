@@ -12,9 +12,9 @@ import (
 	"testing"
 	"testing/iotest"
 
-	"gapdb/gapdb"
-	"gapdb/internal/faultfs"
-	wire "gapdb/internal/protocol"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
+	wire "github.com/spec-kitty/gapdb/internal/protocol"
 )
 
 func TestRecoverWALTornTailAtEveryByte(t *testing.T) {

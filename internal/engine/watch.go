@@ -5,7 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 type WatchSubscription struct {

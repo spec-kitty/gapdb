@@ -8,7 +8,7 @@ import (
 	"sync"
 	"syscall"
 
-	"gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
 )
 
 // processCrashHook exists only in evidence-tagged binaries. Release builds do

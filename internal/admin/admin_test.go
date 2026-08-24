@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/engine"
-	"gapdb/internal/faultfs"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/engine"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 func TestAuditCanonicalCRCAndPostApplyFailure(t *testing.T) {

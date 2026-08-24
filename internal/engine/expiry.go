@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 type ExpiryTimer interface {

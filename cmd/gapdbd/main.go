@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/server"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/server"
 )
 
 const toolVersion = "gapdbd-v1"

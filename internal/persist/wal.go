@@ -12,8 +12,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"gapdb/gapdb"
-	"gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
 )
 
 const (

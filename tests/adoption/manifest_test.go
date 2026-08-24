@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gapdb/tests/adoption"
+	"github.com/spec-kitty/gapdb/tests/adoption"
 )
 
 func TestAutomatedAdoptionNeverApprovesProductionSwitch(t *testing.T) {

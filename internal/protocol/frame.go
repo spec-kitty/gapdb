@@ -5,7 +5,7 @@ import (
 	"io"
 	"math"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 const framePrefixBytes = 4

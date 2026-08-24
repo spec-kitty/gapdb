@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 type failRead struct{}

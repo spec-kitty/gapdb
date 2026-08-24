@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"sync"
 
-	"gapdb/internal/admin"
-	"gapdb/internal/engine"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/internal/admin"
+	"github.com/spec-kitty/gapdb/internal/engine"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 type Runtime struct {

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/protocol"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/protocol"
 )
 
 func TestReviewerClientRejectsNonCanonicalNestedResults(t *testing.T) {

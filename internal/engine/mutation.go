@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 type CommitResult struct {

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"gapdb/gapdb"
-	"gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
 )
 
 func TestManifestOrderedChecksummedFrame(t *testing.T) {

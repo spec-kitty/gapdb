@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/faultfs"
-	"gapdb/internal/protocol"
-	"gapdb/internal/server"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/internal/protocol"
+	"github.com/spec-kitty/gapdb/internal/server"
 	"golang.org/x/sys/unix"
 )
 

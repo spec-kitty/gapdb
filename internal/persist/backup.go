@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
 )
 
 const BackupMetadataFilename = "backup.json"

@@ -9,10 +9,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"gapdb/gapdb"
-	"gapdb/internal/clock"
-	"gapdb/internal/faultfs"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/clock"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 const defaultQueueCapacity = 64

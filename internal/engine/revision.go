@@ -3,8 +3,8 @@ package engine
 import (
 	"sync"
 
-	"gapdb/gapdb"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 // RevisionAllocator supplies values from storage-reserved ranges. The writer is

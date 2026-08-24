@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 const schemaVersion = 1

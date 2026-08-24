@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/protocol"
-	"gapdb/internal/server"
-	"gapdb/tests/adoption"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/protocol"
+	"github.com/spec-kitty/gapdb/internal/server"
+	"github.com/spec-kitty/gapdb/tests/adoption"
 )
 
 func TestGapdbAdapterPassesAllApplicableScenarios(t *testing.T) {

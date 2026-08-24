@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/server"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/server"
 )
 
 func measureReferenceRecovery(t *testing.T, fixture *socketFixture) recoverySummary {

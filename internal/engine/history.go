@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	"gapdb/gapdb"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 type eventGroup struct {

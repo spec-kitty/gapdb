@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"gapdb/gapdb"
-	wire "gapdb/internal/protocol"
+	"github.com/spec-kitty/gapdb/gapdb"
+	wire "github.com/spec-kitty/gapdb/internal/protocol"
 )
 
 func TestRequestGoldenFixtures(t *testing.T) {

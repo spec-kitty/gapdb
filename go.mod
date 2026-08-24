@@ -1,4 +1,4 @@
-module gapdb
+module github.com/spec-kitty/gapdb
 
 go 1.26
 

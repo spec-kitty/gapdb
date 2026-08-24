@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"gapdb/tests/adoption"
+	"github.com/spec-kitty/gapdb/tests/adoption"
 )
 
 const (

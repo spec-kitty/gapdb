@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"gapdb/gapdb"
-	"gapdb/internal/faultfs"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/faultfs"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 type command struct {

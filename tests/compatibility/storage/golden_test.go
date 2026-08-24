@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"gapdb/gapdb"
-	"gapdb/internal/persist"
+	"github.com/spec-kitty/gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/internal/persist"
 )
 
 var updateGoldens = flag.Bool("update-storage-goldens", false, "rewrite storage fixtures from the independent contract encoders")

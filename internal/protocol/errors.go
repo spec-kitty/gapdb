@@ -3,7 +3,7 @@ package protocol
 import (
 	"fmt"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 func invalidProtocol(field, reason string, cause error) error {

@@ -9,7 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"gapdb/gapdb"
+	"github.com/spec-kitty/gapdb/gapdb"
 )
 
 const scanCursorFixedBytes = 52
