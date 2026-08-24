@@ -365,3 +365,21 @@ operational record, not part of the Gapdb product contract.
   acceptance.
 - **Impact:** no verdict, evidence, product file, or path changed. The repair is
   a schema-only compatibility migration across WP02 through WP09.
+
+## 2026-08-23 — Acceptance scaffold and path checks required reconciliation
+
+- **Surface:** final `spec-kitty accept` diagnostics.
+- **Symptom:** task finalization had scaffolded 24 placeholder acceptance rows
+  and no later workflow step replaced their `pending` verdicts despite all work
+  packages and release evidence being approved. Strict acceptance also checked
+  `src/`, `tests/`, and `docs/` on pre-merge `main`, where lane-owned product
+  directories cannot exist yet, and suggested creating empty placeholders.
+- **Recovery:** replace every placeholder with the corresponding FR-001 through
+  FR-024 description, reproducible test/review evidence, reviewer identity, and
+  pass verdict. Use the documented `--lenient` acceptance mode for the
+  pre-consolidation Go layout; Spec Kitty explicitly defines that mode for
+  repositories whose real layout differs from the default software-dev paths.
+  Temporarily stash only the generated sync-state queue during the clean-tree
+  gate and restore it afterward, as committing that queue rewrites itself.
+- **Impact:** acceptance is evidence-backed and no empty source directories or
+  fake tests were created. The Go repository layout remains unchanged.
