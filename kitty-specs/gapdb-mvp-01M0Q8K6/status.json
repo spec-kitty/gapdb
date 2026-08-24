@@ -1,7 +1,7 @@
 {
-  "event_count": 181,
-  "last_event_id": "01M0RJN3AE2N4WAA2J8D41W477",
-  "materialized_at": "2026-08-24T00:27:47.406218+00:00",
+  "event_count": 183,
+  "last_event_id": "01M0RJNAE5YY9N2SY44G7QAEZY",
+  "materialized_at": "2026-08-24T00:27:54.692844+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -12,9 +12,9 @@
     "claimed": 0,
     "done": 0,
     "for_review": 0,
-    "in_progress": 0,
+    "in_progress": 1,
     "in_review": 0,
-    "planned": 2
+    "planned": 1
   },
   "work_packages": {
     "WP01": {
@@ -266,24 +266,25 @@
       }
     },
     "WP08": {
-      "actor": "codex-review-3",
-      "agent": "",
-      "agent_profile": "reviewer-renata",
+      "actor": "codex",
+      "agent": "codex-review-3",
+      "agent_profile": "implementer-ivan",
       "agent_profile_version": "1.0",
       "force_count": 7,
-      "lane": "planned",
-      "last_event_id": "01M0RJN3AE2N4WAA2J8D41W477",
-      "last_transition_at": "2026-08-24T00:27:47.406218+00:00",
+      "lane": "in_progress",
+      "last_event_id": "01M0RJNAE5YY9N2SY44G7QAEZY",
+      "last_transition_at": "2026-08-24T00:27:54.692844+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "WP08 production reliability evidence ready for independent review; verified main-only divergence is governance and project configuration",
         "Reattach canonical WP08 evidence review after runtime URI failure",
         "Cycle 2 complete. Forced only across 236 main-only governance/status commits; lane-h remains on approved WP07 product ancestry. Authoritative recovery/ledger/limit/concurrency evidence and full Go 1.26.7 gates are green.",
         "Reattach canonical cycle-2 review after runtime URI failure",
-        "Repair complete. Forced only across verified 248 main-only governance/status/tooling commits; lane-h retains approved WP07 product ancestry. Actual attempted revision and integrity-verifiable external ledger evidence are green under full Go 1.26.7 gates."
+        "Repair complete. Forced only across verified 248 main-only governance/status/tooling commits; lane-h retains approved WP07 product ancestry. Actual attempted revision and integrity-verifiable external ledger evidence are green under full Go 1.26.7 gates.",
+        "Reattach canonical final WP08 review after runtime URI failure"
       ],
       "provider": "__resolved_provider_absent__",
-      "role": "reviewer",
+      "role": "implementer",
       "shell_pid": 0,
       "shell_pid_created_at": "1787486609.27",
       "subtasks": {
