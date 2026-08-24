@@ -279,7 +279,8 @@
         "WP08 production reliability evidence ready for independent review; verified main-only divergence is governance and project configuration",
         "Reattach canonical WP08 evidence review after runtime URI failure",
         "Cycle 2 complete. Forced only across 236 main-only governance/status commits; lane-h remains on approved WP07 product ancestry. Authoritative recovery/ledger/limit/concurrency evidence and full Go 1.26.7 gates are green.",
-        "Reattach canonical cycle-2 review after runtime URI failure"
+        "Reattach canonical cycle-2 review after runtime URI failure",
+        "Repair complete. Forced only across verified 248 main-only governance/status/tooling commits; lane-h retains approved WP07 product ancestry. Actual attempted revision and integrity-verifiable external ledger evidence are green under full Go 1.26.7 gates."
       ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
