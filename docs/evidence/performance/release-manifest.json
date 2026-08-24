@@ -1,0 +1,152 @@
+{
+  "schema_version": 2,
+  "code_under_test_commit": "3a98149c005031a77a85c42c04caae7073b80dad",
+  "config_sha256": "8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4",
+  "max_evidence_bytes": 8388608,
+  "mvp_status": "complete",
+  "adoption": {
+    "schema_version": 1,
+    "contract_version": "gapdb-phase1/v1",
+    "production_backend": "sqlite",
+    "technical_gates": "incomplete",
+    "adoption_status": "not_approved",
+    "gapdb": {
+      "backend": "gapdb",
+      "status": "pass"
+    },
+    "sqlite": {
+      "backend": "sqlite",
+      "status": "pending",
+      "reason": "external SQLite adapter result is absent"
+    },
+    "safety": {
+      "crash": true,
+      "race": true,
+      "expiry": true,
+      "watch": true,
+      "authority": true
+    },
+    "human_approval": {
+      "approved": false,
+      "source": "external_signed_record_required"
+    }
+  },
+  "coverage": {
+    "race_passed": true,
+    "crash_schedules": 1024,
+    "format_fixtures_passed": true,
+    "modelops_passed": true,
+    "permissions_passed": true,
+    "performance_passed": true,
+    "dual_backend_status": "sqlite_pending"
+  },
+  "evidence": [
+    {
+      "id": "performance-results",
+      "kind": "performance_results_v1",
+      "path": "docs/evidence/performance/results.json",
+      "sha256": "1891b7a81be5968acac124221048d349ad1cf69fb5f529b8f29a2a5a516a14a0",
+      "bytes": 2824,
+      "status": "pass",
+      "source_commit": "3a98149c005031a77a85c42c04caae7073b80dad",
+      "config_sha256": "8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4",
+      "command": "GAPDB_REFERENCE_ACCEPTANCE=1 go test ./tests/performance -run TestReferencePerformanceProfile -count=1 -v",
+      "observed_count": 100000,
+      "minimum_count": 100000,
+      "maximum_count": 100000
+    },
+    {
+      "id": "performance-raw",
+      "kind": "performance_raw_v1",
+      "path": "docs/evidence/performance/raw.txt",
+      "sha256": "3017030623ece594dfaa7c2d16fe4f32d009c40660ef4be8147c3f28b455b667",
+      "bytes": 2107,
+      "status": "pass",
+      "source_commit": "3a98149c005031a77a85c42c04caae7073b80dad",
+      "config_sha256": "8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4",
+      "command": "GAPDB_REFERENCE_ACCEPTANCE=1 go test ./tests/performance -run TestReferencePerformanceProfile -count=1 -v",
+      "observed_count": 3,
+      "minimum_count": 3,
+      "maximum_count": 3
+    },
+    {
+      "id": "adoption-contract",
+      "kind": "adoption_result_v1",
+      "path": "docs/evidence/performance/adoption.json",
+      "sha256": "a13c7fd7cd3d49405f36620c562ce4af8d3c47ac1ecba799954a4fe17930721b",
+      "bytes": 1108,
+      "status": "pass",
+      "source_commit": "3a98149c005031a77a85c42c04caae7073b80dad",
+      "config_sha256": "8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4",
+      "command": "go test ./tests/adoption -run TestGapdbAdapterPassesAllApplicableScenarios -count=1",
+      "observed_count": 14,
+      "minimum_count": 14,
+      "maximum_count": 14
+    },
+    {
+      "id": "crash-race",
+      "kind": "crash_result_v1",
+      "path": "docs/evidence/crash/results.json",
+      "sha256": "24ce945966bbb0f188c9cc2fd294e321ecddd7d592187c51b008440e557d0754",
+      "bytes": 5682,
+      "status": "pass",
+      "source_commit": "d34eadaea72b5763e0270472635e03423f7bffcc",
+      "config_sha256": "",
+      "command": "go test ./tests/crash -run TestAcceptanceDeterministicFaultSchedules -count=1 -v",
+      "observed_count": 1024,
+      "minimum_count": 1000,
+      "maximum_count": 100000
+    },
+    {
+      "id": "protocol-format",
+      "kind": "protocol_doc_v1",
+      "path": "docs/formats/protocol-v1.md",
+      "sha256": "cd08e19252628a1cbfe5bd43018caae86569e041dc01f9d4472dc2eae72389c2",
+      "bytes": 8447,
+      "status": "pass",
+      "source_commit": "3a98149c005031a77a85c42c04caae7073b80dad",
+      "config_sha256": "8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4",
+      "command": "go test ./tests/adoption -run TestLivingDocumentationLinksAndLockedSurface -count=1",
+      "observed_count": 29,
+      "minimum_count": 29,
+      "maximum_count": 29
+    },
+    {
+      "id": "storage-format",
+      "kind": "storage_doc_v1",
+      "path": "docs/formats/storage-v1.md",
+      "sha256": "6d4cca9611e9e272e02d6e566dccc887dacf738c1da8c5d580237f731018295c",
+      "bytes": 5530,
+      "status": "pass",
+      "source_commit": "3a98149c005031a77a85c42c04caae7073b80dad",
+      "config_sha256": "8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4",
+      "command": "go test ./tests/adoption -run TestLivingDocumentationLinksAndLockedSurface -count=1",
+      "observed_count": 11,
+      "minimum_count": 11,
+      "maximum_count": 11
+    }
+  ],
+  "criteria": {
+    "SC-001": {"status": "pass", "command": "go test ./tests/contract/... ./tests/adoption -count=1", "evidence_ids": ["protocol-format", "adoption-contract"]},
+    "SC-002": {"status": "pass", "command": "go test ./tests/crash -run TestAcceptanceDeterministicFaultSchedules -count=1", "evidence_ids": ["crash-race"]},
+    "SC-003": {"status": "pass", "command": "go test -race ./... -count=1", "evidence_ids": ["crash-race"]},
+    "SC-004": {"status": "pass", "command": "go test ./tests/contract/modelops ./tests/contract/cli -count=1", "evidence_ids": ["crash-race"]},
+    "SC-005": {"status": "pass", "command": "go test ./internal/engine ./internal/server ./tests/adoption -count=1", "evidence_ids": ["crash-race", "adoption-contract"]},
+    "SC-006": {"status": "pass", "command": "go test ./internal/engine ./tests/adoption -count=1", "evidence_ids": ["crash-race", "adoption-contract"]},
+    "SC-007": {"status": "pass", "command": "GAPDB_REFERENCE_ACCEPTANCE=1 go test ./tests/performance -run TestReferencePerformanceProfile -count=1 -v", "evidence_ids": ["performance-results", "performance-raw"]},
+    "SC-008": {"status": "pass", "command": "go test ./tests/adoption -count=1", "evidence_ids": ["adoption-contract"]},
+    "SC-009": {"status": "pass", "command": "go test ./tests/compatibility/... ./tests/adoption -count=1", "evidence_ids": ["protocol-format", "storage-format"]},
+    "NFR-001": {"status": "pass", "command": "GAPDB_REFERENCE_ACCEPTANCE=1 go test ./tests/performance -run TestReferencePerformanceProfile -count=1 -v", "evidence_ids": ["performance-results"]},
+    "NFR-002": {"status": "pass", "command": "GAPDB_REFERENCE_ACCEPTANCE=1 go test ./tests/performance -run TestReferencePerformanceProfile -count=1 -v", "evidence_ids": ["performance-results"]},
+    "NFR-003": {"status": "pass", "command": "GAPDB_REFERENCE_ACCEPTANCE=1 go test ./tests/performance -run TestReferencePerformanceProfile -count=1 -v", "evidence_ids": ["performance-results"]},
+    "NFR-004": {"status": "pass", "command": "go test ./tests/crash -run TestAcceptanceDeterministicFaultSchedules -count=1", "evidence_ids": ["crash-race"]},
+    "NFR-005": {"status": "pass", "command": "go test -race ./... -count=1", "evidence_ids": ["crash-race"]},
+    "NFR-006": {"status": "pass", "command": "go test ./tests/contract/modelops -count=1", "evidence_ids": ["crash-race"]},
+    "NFR-007": {"status": "pass", "command": "go test ./tests/compatibility/protocol -count=1", "evidence_ids": ["protocol-format"]},
+    "NFR-008": {"status": "pass", "command": "go test ./tests/contract/api ./tests/contract/cli -count=1", "evidence_ids": ["protocol-format"]},
+    "NFR-009": {"status": "pass", "command": "go test ./internal/server ./tests/crash -count=1", "evidence_ids": ["storage-format", "crash-race"]},
+    "NFR-010": {"status": "pass", "command": "GAPDB_REFERENCE_ACCEPTANCE=1 go test ./tests/performance -run TestReferencePerformanceProfile -count=1 -v", "evidence_ids": ["performance-results"]},
+    "NFR-011": {"status": "pass", "command": "go test ./tests/compatibility/... -count=1", "evidence_ids": ["protocol-format", "storage-format"]},
+    "NFR-012": {"status": "pass", "command": "go test ./tests/contract/modelops ./tests/contract/cli -count=1", "evidence_ids": ["adoption-contract", "crash-race"]}
+  }
+}

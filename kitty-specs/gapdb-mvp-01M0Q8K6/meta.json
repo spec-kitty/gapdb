@@ -23,7 +23,6 @@
   "purpose_context": "This mission advances gapdb mvp on main so stakeholders can track the work from mission creation onward.",
   "purpose_tldr": "gapdb mvp",
   "slug": "gapdb-mvp-01M0Q8K6",
-  "status_phase": "1",
   "target_branch": "main",
   "topology": "single_branch",
   "vcs": "git",

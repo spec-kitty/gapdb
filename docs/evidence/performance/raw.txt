@@ -1,0 +1,14 @@
+CODE_UNDER_TEST_COMMIT=3a98149c005031a77a85c42c04caae7073b80dad
+CONFIG_SHA256=8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4
+COMMAND=GAPDB_REFERENCE_ACCEPTANCE=1 go test ./tests/performance -run TestReferencePerformanceProfile -count=1 -v
+REFERENCE_RESULT={"schema_version":1,"seed":5134473304279631186,"live_records":100000,"value_bytes":1024,"readers":8,"writers":1,"transport":"unix_socket","filesystem":"os_fsync_enabled","socket_mode":"0600","successful_durable_barriers":151,"observed_wal_syncs":156,"metrics":{"durable_put":{"samples":128,"p50_ms":0.612456,"p95_ms":3.072181,"p99_ms":4.653601,"allocs_per_op":882,"target_p95_ms":50,"target_passed":true},"get":{"samples":2048,"p50_ms":0.487707,"p95_ms":0.778715,"p99_ms":1.156362,"allocs_per_op":890,"target_p95_ms":2,"target_passed":true},"memory_put":{"samples":512,"p50_ms":0.319928,"p95_ms":0.608837,"p99_ms":1.258352,"allocs_per_op":882,"target_p95_ms":5,"target_passed":true}},"windows":{"durable_put":{"readers_ready":8,"readers_active":8,"writer_ready":true,"writer_active":true,"read_operations":1024,"write_operations":128},"get":{"readers_ready":8,"readers_active":8,"writer_ready":true,"writer_active":true,"read_operations":2048,"write_operations":256},"memory_put":{"readers_ready":8,"readers_active":8,"writer_ready":true,"writer_active":true,"read_operations":4096,"write_operations":512}},"recovery":{"snapshot_revision":1329,"later_wal_commits":10000,"ready_ms":522.302385,"target_ms":5000,"target_passed":true},"reference_accepted":true}
+COMMAND=GAPDB_REFERENCE_ACCEPTANCE=1 go test ./tests/performance -run '^$' -bench '^BenchmarkReferenceUnixSocket$' -benchtime=100x -count=1 -benchmem
+goos: linux
+goarch: amd64
+pkg: gapdb/tests/performance
+cpu: AMD Ryzen 5 5600X 6-Core Processor
+BenchmarkReferenceUnixSocket/Get-12          100      74737 ns/op   131175 B/op   1031 allocs/op
+BenchmarkReferenceUnixSocket/memory_put-12   100     244766 ns/op   188776 B/op   1740 allocs/op
+BenchmarkReferenceUnixSocket/durable_put-12  100     565278 ns/op   189621 B/op   1741 allocs/op
+PASS
+ok gapdb/tests/performance 7.396s

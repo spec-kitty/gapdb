@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "contract_version": "gapdb-phase1/v1",
+  "code_commit": "3a98149c005031a77a85c42c04caae7073b80dad",
+  "config_sha256": "8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4",
+  "command": "go test ./tests/adoption -run TestGapdbAdapterPassesAllApplicableScenarios -count=1",
+  "gapdb": {
+    "status": "pass",
+    "applicable": 14,
+    "scenarios": ["ack/durable-restart", "ack/memory-visible", "authority/integration", "authority/lease", "authority/review", "authority/workflow", "batch/atomic", "conditional/cas-delete", "data/get-put", "expiry/release-authority", "inspect/authority", "response-loss/reconcile", "scan/sorted-prefix", "watch/registered-order"]
+  },
+  "sqlite": {"status": "pending", "reason": "originating application's external SQLite adapter result is absent"},
+  "safety": {"crash": true, "race": true, "expiry": true, "watch": true, "authority": true},
+  "technical_gates": "incomplete",
+  "production_backend": "sqlite",
+  "adoption_status": "not_approved",
+  "human_approval": {"approved": false, "source": "external_signed_record_required"}
+}

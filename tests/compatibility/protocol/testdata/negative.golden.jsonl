@@ -1,0 +1,14 @@
+{"name":"unsupported-version","payload_base64":"eyJzY2hlbWFfdmVyc2lvbiI6Miwib3BlcmF0aW9uIjoiZ2V0IiwiYXJndW1lbnRzIjp7ImtleSI6ImsifX0=","code":"UNSUPPORTED_VERSION"}
+{"name":"unknown-field","payload_base64":"eyJzY2hlbWFfdmVyc2lvbiI6MSwib3BlcmF0aW9uIjoiZ2V0IiwiYXJndW1lbnRzIjp7ImtleSI6ImsiLCJ1bmtub3duIjp0cnVlfX0=","code":"INVALID_REQUEST","field":"arguments","reason_contains":"unknown field"}
+{"name":"duplicate-field","payload_base64":"eyJzY2hlbWFfdmVyc2lvbiI6MSwib3BlcmF0aW9uIjoiZ2V0IiwiYXJndW1lbnRzIjp7ImtleSI6ImsiLCJrZXkiOiJqIn19","code":"INVALID_REQUEST","field":"envelope","reason_contains":"duplicate field"}
+{"name":"trailing-value","payload_base64":"eyJzY2hlbWFfdmVyc2lvbiI6MSwib3BlcmF0aW9uIjoiZ2V0IiwiYXJndW1lbnRzIjp7ImtleSI6ImsifX0ge30=","code":"INVALID_REQUEST"}
+{"name":"invalid-base64","payload_base64":"eyJzY2hlbWFfdmVyc2lvbiI6MSwib3BlcmF0aW9uIjoicHV0IiwiYXJndW1lbnRzIjp7ImtleSI6ImsiLCJ2YWx1ZV9iYXNlNjQiOiIqKioiLCJhY2siOiJtZW1vcnkifX0=","code":"INVALID_REQUEST"}
+{"name":"numeric-overflow","payload_base64":"eyJzY2hlbWFfdmVyc2lvbiI6MSwib3BlcmF0aW9uIjoiZGVsZXRlX2lmX3JldmlzaW9uIiwiYXJndW1lbnRzIjp7ImtleSI6ImsiLCJleHBlY3RlZF9yZXZpc2lvbiI6MTg0NDY3NDQwNzM3MDk1NTE2MTYsImFjayI6Im1lbW9yeSJ9fQ==","code":"INVALID_REQUEST"}
+{"name":"invalid-utf8","payload_base64":"eyJzY2hlbWFfdmVyc2lvbiI6MSwib3BlcmF0aW9uIjoiZ2V0IiwiYXJndW1lbnRzIjp7ImtleSI6Iv8ifX0=","code":"INVALID_REQUEST"}
+{"name":"key-too-large","generator":"key-too-large","code":"KEY_TOO_LARGE","field":"key","evidence":"received_bytes"}
+{"name":"value-too-large","generator":"value-too-large","code":"VALUE_TOO_LARGE","field":"value_base64","evidence":"received_bytes"}
+{"name":"frame-too-large","generator":"frame-too-large","code":"FRAME_TOO_LARGE","evidence":"received_bytes"}
+{"name":"batch-operations-too-large","generator":"batch-operations-too-large","code":"BATCH_TOO_LARGE","evidence":"received_operations"}
+{"name":"batch-bytes-too-large","generator":"batch-bytes-too-large","code":"BATCH_TOO_LARGE","evidence":"received_bytes"}
+{"name":"request-id-too-large","generator":"request-id-too-large","code":"INVALID_REQUEST","field":"request_id","reason_contains":"256 bytes"}
+{"name":"scan-limit-too-large","generator":"scan-limit-too-large","code":"INVALID_REQUEST","field":"arguments.limit","reason_contains":"configured scan limit"}

@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "code_under_test_commit": "d34eadaea72b5763e0270472635e03423f7bffcc",
+  "profile": "acceptance",
+  "environment": {
+    "go": "go1.26.7 linux/amd64",
+    "kernel": "Linux 7.0.0-28-generic x86_64",
+    "filesystem": "ext4",
+    "logical_cpus": 12,
+    "memory_kb": 65721852,
+    "host_identifiers_recorded": false
+  },
+  "fault_matrix": {
+    "status": "pass",
+    "command": "go test ./tests/crash -run TestAcceptanceDeterministicFaultSchedules -count=1 -v",
+    "schedule_count": 1024,
+    "point_phase_pairs": 78,
+    "named_points": 39,
+    "categories": [
+      "ownership",
+      "identity",
+      "wal",
+      "recovery",
+      "snapshot",
+      "manifest",
+      "compaction",
+      "backup",
+      "audit",
+      "apply",
+      "response"
+    ],
+    "acknowledgement_classes": [
+      "durable",
+      "memory",
+      "unacknowledged"
+    ],
+    "observed_class_counts": {
+      "durable": 2433,
+      "memory": 812,
+      "unacknowledged": 119
+    },
+    "injected_operation_class_counts": {
+      "durable": 9,
+      "memory": 4,
+      "unacknowledged": 119
+    },
+    "first_seed": 15669758121109896512,
+    "last_seed": 11144075610932254037,
+    "duration_seconds": 11.10,
+    "observation_source": "pre-operation public durable reservation boundary plus uninjected restart followed by public Status/Get values and record revisions, a post-recovery durable allocation, a second restart, and stable structured fail-closed/tree-digest evidence where public recovery is unavailable",
+    "attempted_revision_probe": {
+      "previous_reserved_revision_end": 1048576,
+      "actual_attempted_and_recovered_revision": 1048577,
+      "post_recovery_revision": 2097153,
+      "reuse_rejected": true
+    },
+    "public_effect_revision_match_required": true,
+    "successful_response_revision_binding": {
+      "expected": "reserved_revision_end + 1",
+      "exact_response_revision_preserved": true,
+      "zero_lower_higher_and_overflow_mismatches_rejected": true
+    },
+    "smallest_reproducer_format": "seed-<hex>/<point>/<phase>/<ack-class>/occurrence-1"
+  },
+  "subprocess": {
+    "status": "pass",
+    "binary_build_tag": "gapdb_crash_evidence",
+    "release_binary_has_process_stop_hook": false,
+    "external_ledger_synced": true,
+    "external_ledger_strictly_decoded_into_oracle": true,
+    "external_ledger_sha256_chain": true,
+    "external_ledger_terminal_digest_separately_synced": true,
+    "terminal_digest_retained_outside_artifacts_by_parent": true,
+    "requested_acknowledgement_retained_outside_artifacts_by_parent": true,
+    "absent_stale_and_wrong_retained_anchors_rejected": true,
+    "coherent_revision_rewrite_rejected_by_public_record_revision": true,
+    "coherent_durable_to_memory_rewrite_rejected_by_requested_acknowledgement": true,
+    "re_chained_tamper_rejected_by_terminal_digest": true,
+    "public_record_revision_reconciled": true,
+    "ledger_tamper_and_contradiction_rejected": true,
+    "hook_termination_signal": "SIGKILL",
+    "exact_signal_asserted": true,
+    "milestones": [
+      "wal_frame_write",
+      "wal_buffer_flush",
+      "wal_file_sync",
+      "map_apply",
+      "response_publish",
+      "snapshot_rename",
+      "manifest_rename",
+      "stale_socket_recovery",
+      "ownership_conflict",
+      "graceful_shutdown_drain"
+    ]
+  },
+  "race_stress": {
+    "status": "pass",
+    "readers": 8,
+    "mutations": 120,
+    "condition_contenders": 16,
+    "observed_watch_revision": 132,
+    "exact_watch_sequence": true,
+    "watch_lag_forced": true,
+    "watch_lag_terminal_evidence_checked": true,
+    "writer_and_watch_clients_separate": true,
+    "accepted_watch_deadline_checked": true,
+    "disconnect_checked": true,
+    "concurrent_shutdown_acknowledgements_recovered": true
+  },
+  "safety_envelope": {
+    "status": "pass",
+    "umask_cases": 4,
+    "configured_limits_at_max_and_max_plus_one": true,
+    "configured_limits_exercised": [
+      "max_key_bytes",
+      "max_value_bytes",
+      "max_frame_bytes",
+      "max_batch_bytes",
+      "max_batch_operations",
+      "max_scan_records",
+      "max_scan_bytes",
+      "watch_buffer_events",
+      "max_watch_clients",
+      "max_concurrent_clients",
+      "max_history_events",
+      "max_history_bytes"
+    ],
+    "total_request_frame_boundary_checked": true,
+    "diagnostic_path_limit_truncation_checked": true,
+    "degraded_read_and_inspection_evidence": true,
+    "unsupported_format_no_mutation": true,
+    "ownership_conflict_no_mutation": true
+  },
+  "full_tests": {
+    "normal": {
+      "status": "pass",
+      "command": "go test -count=1 ./..."
+    },
+    "race": {
+      "status": "pass",
+      "command": "go test -race -count=1 ./..."
+    }
+  },
+  "fuzz": [
+    {
+      "target": "FuzzDecodeSnapshotNeverPanics",
+      "status": "pass",
+      "duration_seconds": 5.129,
+      "executions": 629845
+    },
+    {
+      "target": "FuzzStorageDecoders",
+      "status": "pass",
+      "duration_seconds": 6.139,
+      "executions": 18941
+    },
+    {
+      "target": "FuzzWireAndStorageDecoders",
+      "status": "pass",
+      "duration_seconds": 6.190,
+      "executions": 21984
+    },
+    {
+      "target": "FuzzScanCursorDecoder",
+      "status": "pass",
+      "duration_seconds": 6.137,
+      "executions": 29765
+    },
+    {
+      "target": "FuzzBackupVerifierDoesNotMutate",
+      "status": "pass",
+      "duration_seconds": 6.125,
+      "executions": 10227
+    }
+  ],
+  "static_gates": {
+    "go_vet": "pass",
+    "staticcheck": "pass",
+    "govulncheck": "pass_no_vulnerabilities",
+    "go_mod_verify": "pass",
+    "gofmt": "pass",
+    "git_diff_check": "pass"
+  },
+  "platform_skips": [],
+  "flaky_retries": 0
+}

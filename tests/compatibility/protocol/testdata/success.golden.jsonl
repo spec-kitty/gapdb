@@ -1,0 +1,8 @@
+{"schema_version":1,"ok":true,"request_id":"req-get","database_id":"0198f4d4f26a7b1ca3df00c30ca93e73","operation":"get","result":{"record":{"key":"workflows/123","value_base64":"AQID","revision":45,"expires_at":"2026-08-23T18:30:00Z"}}}
+{"schema_version":1,"ok":true,"database_id":"0198f4d4f26a7b1ca3df00c30ca93e73","operation":"put","result":{"revision":46,"ack":"durable","durable_through_revision":46}}
+{"schema_version":1,"ok":true,"database_id":"0198f4d4f26a7b1ca3df00c30ca93e73","operation":"atomic_batch","result":{"revision":47,"ack":"memory","durable_through_revision":46,"mutation_count":2}}
+{"schema_version":1,"ok":true,"database_id":"0198f4d4f26a7b1ca3df00c30ca93e73","operation":"scan_prefix","result":{"observed_revision":102,"as_of":"2026-08-23T18:00:00Z","records":[],"truncated":false}}
+{"schema_version":1,"ok":true,"request_id":"watch-1","database_id":"0198f4d4f26a7b1ca3df00c30ca93e73","operation":"watch","stream":"started","registration_revision":110}
+{"schema_version":1,"ok":true,"request_id":"watch-empty","database_id":"0198f4d4f26a7b1ca3df00c30ca93e73","operation":"watch","stream":"started","registration_revision":0}
+{"schema_version":1,"ok":true,"request_id":"watch-1","database_id":"0198f4d4f26a7b1ca3df00c30ca93e73","operation":"watch","stream":"event","event":{"revision":105,"order":0,"kind":"put","key":"workflows/123","record":{"key":"workflows/123","value_base64":"AQID","revision":105}}}
+{"schema_version":1,"ok":true,"request_id":"watch-1","database_id":"0198f4d4f26a7b1ca3df00c30ca93e73","operation":"watch","stream":"ended","reason":"client_closed"}
