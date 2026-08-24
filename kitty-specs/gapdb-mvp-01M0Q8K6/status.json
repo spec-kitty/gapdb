@@ -316,7 +316,8 @@
       "model": "__resolved_model_absent__",
       "notes": [
         "Implemented real Unix-socket/fsync performance acceptance, portable adoption contract, living format references, and fail-closed bounded release manifest; full normal/race/static/security/fuzz gates pass. Forced only after verifying 267 main-only commits touch governance/tooling/status artifacts, while lane-i retains the approved WP08 product lineage.",
-        "Reattach canonical WP09 review after runtime cycle wrapper defect"
+        "Reattach canonical WP09 review after runtime cycle wrapper defect",
+        "Cycle 2: proved fixed 8-reader/1-writer mixed windows and real OS WAL syncs; added portable real wire-response ambiguity/restart reconciliation; bound every release input to strict caller-pinned semantic authority with coherent-rewrite matrix. Official profile repeated with stable authority fields; full normal/race/static/security/fuzz gates pass. Forced only after verifying all 278 main-only commits touch governance/tooling/status paths and lane-i retains the approved product lineage."
       ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
