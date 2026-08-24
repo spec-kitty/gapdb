@@ -1,7 +1,7 @@
 ---
 affected_files:
-  - tests/adoption/docs_test.go
-  - tests/adoption/evidence.go
+  - path: tests/adoption/docs_test.go
+  - path: tests/adoption/evidence.go
 cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
 reproduction_command: go test ./tests/adoption -run TestSemanticEvidenceAdversarialRewriteMatrix -count=1

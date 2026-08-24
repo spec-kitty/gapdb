@@ -1,8 +1,8 @@
 ---
 affected_files:
-  - cmd/gapctl/command.go
-  - cmd/gapctl/output_test.go
-  - tests/contract/cli/cli_test.go
+  - path: cmd/gapctl/command.go
+  - path: cmd/gapctl/output_test.go
+  - path: tests/contract/cli/cli_test.go
 cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
 reproduction_command: go test ./cmd/gapctl -run '^TestReviewerContractValidControlRequestIDsEchoOnEarlyErrors$' -count=1

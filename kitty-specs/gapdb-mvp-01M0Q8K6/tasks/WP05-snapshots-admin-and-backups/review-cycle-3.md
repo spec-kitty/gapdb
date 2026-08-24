@@ -1,7 +1,7 @@
 ---
 affected_files:
-  - internal/owner/runtime.go
-  - internal/persist/identity.go
+  - path: internal/owner/runtime.go
+  - path: internal/persist/identity.go
 cycle_number: 3
 mission_slug: gapdb-mvp-01M0Q8K6
 reproduction_command: go test ./internal/owner -run '^TestReviewerOpenRejectsReleasedOwnerLock$' -count=1

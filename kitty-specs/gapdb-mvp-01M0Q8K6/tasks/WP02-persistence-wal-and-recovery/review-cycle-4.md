@@ -1,7 +1,7 @@
 ---
 affected_files:
-  - internal/persist/recovery.go
-  - internal/protocol/envelope.go
+  - path: internal/persist/recovery.go
+  - path: internal/protocol/envelope.go
 cycle_number: 4
 mission_slug: gapdb-mvp-01M0Q8K6
 reproduction_command: go test ./internal/persist -run '^TestReviewerCycle3AuditAndWireAggregateEvidence/reservation-validation$' -count=1

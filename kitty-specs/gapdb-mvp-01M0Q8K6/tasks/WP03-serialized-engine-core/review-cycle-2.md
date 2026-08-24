@@ -1,8 +1,8 @@
 ---
 affected_files:
-  - internal/engine/revision.go
-  - internal/engine/writer.go
-  - internal/engine/writer_test.go
+  - path: internal/engine/revision.go
+  - path: internal/engine/writer.go
+  - path: internal/engine/writer_test.go
 cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
 reproduction_command: go test ./internal/engine -run '^TestReviewerWP03' -count=1

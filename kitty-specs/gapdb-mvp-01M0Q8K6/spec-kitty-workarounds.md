@@ -348,3 +348,20 @@ operational record, not part of the Gapdb product contract.
 - **Impact:** final approval is valid (`0fbc0ee`, annotation `bbb27b2`), but the
   event history contains a committed annotation from an operation reported as
   failed. The transition surface is not atomic around ancestry validation.
+
+## 2026-08-23 — Merge rejected reviewer-generated affected-file metadata
+
+- **Surface:** final `spec-kitty merge --dry-run` review-artifact consistency
+  gate.
+- **Symptom:** eight latest review artifacts created during the mission used
+  `affected_files` as lists of path strings. Earlier review and approval
+  commands accepted and committed that representation, but the 3.2.6 merge gate
+  requires each entry to be a mapping with a `path` key and rejected every
+  affected approved work package.
+- **Recovery:** manually classify every latest-artifact occurrence as serialized
+  governance metadata, preserve each path and all review content, and normalize
+  only the list entries from `- <path>` to `- path: <path>`. Re-run the merge
+  dry-run to validate all artifacts against the current parser before
+  acceptance.
+- **Impact:** no verdict, evidence, product file, or path changed. The repair is
+  a schema-only compatibility migration across WP02 through WP09.

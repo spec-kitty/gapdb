@@ -1,10 +1,10 @@
 ---
 affected_files:
-- tests/crash/fault_matrix_test.go
-- tests/crash/ledger_test.go
-- tests/crash/process_test.go
-- docs/evidence/crash/results.json
-- docs/evidence/crash/README.md
+- path: tests/crash/fault_matrix_test.go
+- path: tests/crash/ledger_test.go
+- path: tests/crash/process_test.go
+- path: docs/evidence/crash/results.json
+- path: docs/evidence/crash/README.md
 cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
 reproduction_command: go test ./tests/crash -run TestAcceptanceDeterministicFaultSchedules -count=1 -v

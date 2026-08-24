@@ -1,7 +1,7 @@
 ---
 affected_files:
-  - internal/engine/history.go
-  - internal/engine/history_test.go
+  - path: internal/engine/history.go
+  - path: internal/engine/history_test.go
 cycle_number: 3
 mission_slug: gapdb-mvp-01M0Q8K6
 reproduction_command: go test ./internal/engine -run '^TestReviewerWP04RecoveryAcceptsDurablyBurnedRevisionGaps$' -count=1

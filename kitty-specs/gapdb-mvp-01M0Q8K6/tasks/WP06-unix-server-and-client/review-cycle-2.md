@@ -1,7 +1,7 @@
 ---
 affected_files:
-  - internal/server/server.go
-  - internal/server/socket_anchor.go
+  - path: internal/server/server.go
+  - path: internal/server/socket_anchor.go
 cycle_number: 2
 mission_slug: gapdb-mvp-01M0Q8K6
 reproduction_command: go test ./internal/server -run '^TestReviewerSeparateSocketParentSwapBeforeFirstCheckFailsClosed$' -count=10
