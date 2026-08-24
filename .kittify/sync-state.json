@@ -3,14 +3,13 @@
   "pending_local_commits": [
     {
       "type": "LocalCommit",
-      "git_hash": "0fbc0eeab2333ff0f865b6194b99878811a24b6f",
+      "git_hash": "96ffd7ad50b22d25f2f07cd12a89b9048d513592",
       "mission_id": "gapdb-mvp-01M0Q8K6",
       "build_id": "2c7ead70-7e62-56bd-82a7-e0d21a616286",
       "changed_files": [
-        "kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl",
-        "kitty-specs/gapdb-mvp-01M0Q8K6/status.json"
+        "kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP09-performance-and-adoption-gate/baseline-tests.json"
       ],
-      "committed_at": "2026-08-24T00:46:49.117679+00:00"
+      "committed_at": "2026-08-24T00:48:12.946685+00:00"
     }
   ]
 }
