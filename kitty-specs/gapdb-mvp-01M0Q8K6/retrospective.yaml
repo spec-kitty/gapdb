@@ -1,0 +1,394 @@
+schema_version: 1
+mission_id: 01M0Q8K61B2MWHKZEXB0HA5E03
+mission_slug: gapdb-mvp-01M0Q8K6
+mission_number:
+friendly_name: gapdb mvp
+mission_type: software-dev
+target_branch: main
+created_at: '2026-08-24T02:51:06.820185+00:00'
+created_by:
+  kind: runtime
+  id: spec-kitty-generator
+  display: Spec Kitty Generator
+provenance:
+  kind: runtime_post_completion
+  invoked_at: '2026-08-24T02:51:06.820185+00:00'
+  policy_resolved_from:
+    enabled: <default>
+    timing: <default>
+    failure_policy: <default>
+    write_record: <default>
+    generate_proposals: <default>
+    apply_proposals: <default>
+    permissions.write_record: <default>
+    permissions.inspect_mission_artifacts: <default>
+    permissions.propose_glossary_changes: <default>
+    permissions.propose_drg_changes: <default>
+    permissions.propose_doctrine_changes: <default>
+    permissions.apply_low_risk_changes: <default>
+    permissions.apply_structural_changes: <default>
+    precedence: <default>
+    generator: <default>
+policy_source:
+  enabled: <default>
+  timing: <default>
+  failure_policy: <default>
+  write_record: <default>
+  generate_proposals: <default>
+  apply_proposals: <default>
+  permissions.write_record: <default>
+  permissions.inspect_mission_artifacts: <default>
+  permissions.propose_glossary_changes: <default>
+  permissions.propose_drg_changes: <default>
+  permissions.propose_doctrine_changes: <default>
+  permissions.apply_low_risk_changes: <default>
+  permissions.apply_structural_changes: <default>
+  precedence: <default>
+  generator: <default>
+findings_status: has_findings
+helped: []
+not_helpful:
+- id: n-028
+  category: doc
+  summary: analysis-report.md present with findings
+  evidence_refs:
+  - e-042
+  details: An analysis-report.md artifact is present for this mission. Review its findings to understand documented
+    issues and decisions.
+- id: n-019
+  category: implementation
+  summary: WP01 needed 2 implementation cycles
+  evidence_refs:
+  - e-033
+  details: WP WP01 entered in_progress 2 times. Multiple implementation cycles suggest rework not captured as a
+    documented review rejection; the WP scope or contract may need refinement.
+- id: n-020
+  category: implementation
+  summary: WP02 needed 4 implementation cycles
+  evidence_refs:
+  - e-034
+  details: WP WP02 entered in_progress 4 times. Multiple implementation cycles suggest rework not captured as a
+    documented review rejection; the WP scope or contract may need refinement.
+- id: n-021
+  category: implementation
+  summary: WP03 needed 2 implementation cycles
+  evidence_refs:
+  - e-035
+  details: WP WP03 entered in_progress 2 times. Multiple implementation cycles suggest rework not captured as a
+    documented review rejection; the WP scope or contract may need refinement.
+- id: n-022
+  category: implementation
+  summary: WP04 needed 3 implementation cycles
+  evidence_refs:
+  - e-036
+  details: WP WP04 entered in_progress 3 times. Multiple implementation cycles suggest rework not captured as a
+    documented review rejection; the WP scope or contract may need refinement.
+- id: n-023
+  category: implementation
+  summary: WP05 needed 6 implementation cycles
+  evidence_refs:
+  - e-037
+  details: WP WP05 entered in_progress 6 times. Multiple implementation cycles suggest rework not captured as a
+    documented review rejection; the WP scope or contract may need refinement.
+- id: n-024
+  category: implementation
+  summary: WP06 needed 5 implementation cycles
+  evidence_refs:
+  - e-038
+  details: WP WP06 entered in_progress 5 times. Multiple implementation cycles suggest rework not captured as a
+    documented review rejection; the WP scope or contract may need refinement.
+- id: n-025
+  category: implementation
+  summary: WP07 needed 6 implementation cycles
+  evidence_refs:
+  - e-039
+  details: WP WP07 entered in_progress 6 times. Multiple implementation cycles suggest rework not captured as a
+    documented review rejection; the WP scope or contract may need refinement.
+- id: n-026
+  category: implementation
+  summary: WP08 needed 4 implementation cycles
+  evidence_refs:
+  - e-040
+  details: WP WP08 entered in_progress 4 times. Multiple implementation cycles suggest rework not captured as a
+    documented review rejection; the WP scope or contract may need refinement.
+- id: n-027
+  category: implementation
+  summary: WP09 needed 4 implementation cycles
+  evidence_refs:
+  - e-041
+  details: WP WP09 entered in_progress 4 times. Multiple implementation cycles suggest rework not captured as a
+    documented review rejection; the WP scope or contract may need refinement.
+- id: n-011
+  category: process
+  summary: WP02 required 5 --force override(s) during workflow
+  evidence_refs:
+  - e-025
+  details: WP WP02 required 5 operator-driven --force lane transition(s). Force overrides typically indicate the runtime
+    guard failed or the operator routed around it; investigate the underlying cause.
+- id: n-012
+  category: process
+  summary: WP03 required 3 --force override(s) during workflow
+  evidence_refs:
+  - e-026
+  details: WP WP03 required 3 operator-driven --force lane transition(s). Force overrides typically indicate the runtime
+    guard failed or the operator routed around it; investigate the underlying cause.
+- id: n-013
+  category: process
+  summary: WP04 required 4 --force override(s) during workflow
+  evidence_refs:
+  - e-027
+  details: WP WP04 required 4 operator-driven --force lane transition(s). Force overrides typically indicate the runtime
+    guard failed or the operator routed around it; investigate the underlying cause.
+- id: n-010
+  category: process
+  summary: WP05 had 1 lane bounce(s) before approval
+  evidence_refs:
+  - e-024
+  details: WP WP05 moved backward across workflow lanes 1 time(s) outside the documented reviewer-feedback flow.
+- id: n-014
+  category: process
+  summary: WP05 required 7 --force override(s) during workflow
+  evidence_refs:
+  - e-028
+  details: WP WP05 required 7 operator-driven --force lane transition(s). Force overrides typically indicate the runtime
+    guard failed or the operator routed around it; investigate the underlying cause.
+- id: n-015
+  category: process
+  summary: WP06 required 6 --force override(s) during workflow
+  evidence_refs:
+  - e-029
+  details: WP WP06 required 6 operator-driven --force lane transition(s). Force overrides typically indicate the runtime
+    guard failed or the operator routed around it; investigate the underlying cause.
+- id: n-016
+  category: process
+  summary: WP07 required 7 --force override(s) during workflow
+  evidence_refs:
+  - e-030
+  details: WP WP07 required 7 operator-driven --force lane transition(s). Force overrides typically indicate the runtime
+    guard failed or the operator routed around it; investigate the underlying cause.
+- id: n-017
+  category: process
+  summary: WP08 required 5 --force override(s) during workflow
+  evidence_refs:
+  - e-031
+  details: WP WP08 required 5 operator-driven --force lane transition(s). Force overrides typically indicate the runtime
+    guard failed or the operator routed around it; investigate the underlying cause.
+- id: n-018
+  category: process
+  summary: WP09 required 5 --force override(s) during workflow
+  evidence_refs:
+  - e-032
+  details: WP WP09 required 5 operator-driven --force lane transition(s). Force overrides typically indicate the runtime
+    guard failed or the operator routed around it; investigate the underlying cause.
+- id: n-001
+  category: review_loop
+  summary: WP01 required 1 rejection cycle(s) before approval
+  evidence_refs:
+  - e-015
+  details: WP WP01 was sent back from review to planning 1 time(s).
+- id: n-002
+  category: review_loop
+  summary: WP02 required 3 rejection cycle(s) before approval
+  evidence_refs:
+  - e-016
+  details: WP WP02 was sent back from review to planning 3 time(s).
+- id: n-003
+  category: review_loop
+  summary: WP03 required 1 rejection cycle(s) before approval
+  evidence_refs:
+  - e-017
+  details: WP WP03 was sent back from review to planning 1 time(s).
+- id: n-004
+  category: review_loop
+  summary: WP04 required 2 rejection cycle(s) before approval
+  evidence_refs:
+  - e-018
+  details: WP WP04 was sent back from review to planning 2 time(s).
+- id: n-005
+  category: review_loop
+  summary: WP05 required 4 rejection cycle(s) before approval
+  evidence_refs:
+  - e-019
+  details: WP WP05 was sent back from review to planning 4 time(s).
+- id: n-006
+  category: review_loop
+  summary: WP06 required 4 rejection cycle(s) before approval
+  evidence_refs:
+  - e-020
+  details: WP WP06 was sent back from review to planning 4 time(s).
+- id: n-007
+  category: review_loop
+  summary: WP07 required 5 rejection cycle(s) before approval
+  evidence_refs:
+  - e-021
+  details: WP WP07 was sent back from review to planning 5 time(s).
+- id: n-008
+  category: review_loop
+  summary: WP08 required 3 rejection cycle(s) before approval
+  evidence_refs:
+  - e-022
+  details: WP WP08 was sent back from review to planning 3 time(s).
+- id: n-009
+  category: review_loop
+  summary: WP09 required 3 rejection cycle(s) before approval
+  evidence_refs:
+  - e-023
+  details: WP WP09 was sent back from review to planning 3 time(s).
+gaps: []
+proposals: []
+evidence_refs:
+- id: e-001
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/meta.json
+- id: e-002
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/spec.md
+- id: e-003
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/plan.md
+- id: e-004
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/tasks.md
+- id: e-005
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP01-public-contracts-and-protocol.md
+- id: e-006
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP02-persistence-wal-and-recovery.md
+- id: e-007
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP03-serialized-engine-core.md
+- id: e-008
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP04-expiry-scans-and-watches.md
+- id: e-009
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP05-snapshots-admin-and-backups.md
+- id: e-010
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP06-unix-server-and-client.md
+- id: e-011
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP07-model-oriented-cli.md
+- id: e-012
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP08-crash-race-and-corruption-evidence.md
+- id: e-013
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP09-performance-and-adoption-gate.md
+- id: e-014
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+- id: e-015
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0QEP7R4XYSM0DZBYC4CRT92
+- id: e-016
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0QK1511DG9FCZED6PF3VSC3..01M0QN3XN23Q8J4SPRVPNK2NGA
+- id: e-017
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0QQ6G827GT0P5WHFG9RZJ4Y
+- id: e-018
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0QSVJH0XKQTDB37TTXY8EY0..01M0QTSEC9Y4FCASJR7E845D2T
+- id: e-019
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0QX41MZGN6CMDSCR5GMVDN5..01M0R0FJ20CJHYPNSV8SCB8XQA
+- id: e-020
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0R395KTDRFFY7CEJ71CV6QE..01M0R6J6GCJBNSN6NBCD210HYT
+- id: e-021
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0R95JQS2T84P6QDMYPDM9RP..01M0RCEMVV9NSCCM1V9PKMSNSX
+- id: e-022
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0RF3AFS0GM9GQ97379V1H29..01M0RJK978YKJ0X2MP3J36DNTQ
+- id: e-023
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0RNVWCR8XJ9WR6X78BP2PVH..01M0RSKSAY7YJAV6AQGZ8PW90Y
+- id: e-024
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0QYHFF0D1K5WKX20RN9H9RT
+- id: e-025
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0QJBSKPV56S2W3BBC2ADR3G..01M0QNRWBA7EEAZV98JM7N7XY3
+- id: e-026
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0QPRMS1TXS076GV37WHE4VE..01M0QR0JW053ZJYV367XANA7ZS
+- id: e-027
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0QSDCGE3GX40QJNAKZ98QNE..01M0QVATN3H9GW0JECRF7MT337
+- id: e-028
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0QWPCT889VJRWVG6E9FYP42..01M0R12994ACQ46QC3A54GF5CF
+- id: e-029
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0R2SQZT3H3TZVA98MTCXTFE..01M0R77SFD0B6QW3C6ETVQVP39
+- id: e-030
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0R8NRHKW2JZBJWAPSPT4FS3..01M0RCZJFHD6XNGKRXDX976R1Y
+- id: e-031
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0REQ9KBXZFFKR76G87P0J5K..01M0RKQXRRA7CRWDCX3CJ6P0K5
+- id: e-032
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: 01M0RNB8SWRWRC0ZBVGWRS74RN..01M0RTEHM312WDYRCHVMRGC9KJ
+- id: e-033
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: implementation_cycles
+- id: e-034
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: implementation_cycles
+- id: e-035
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: implementation_cycles
+- id: e-036
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: implementation_cycles
+- id: e-037
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: implementation_cycles
+- id: e-038
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: implementation_cycles
+- id: e-039
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: implementation_cycles
+- id: e-040
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: implementation_cycles
+- id: e-041
+  kind: event_range
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl
+  range: implementation_cycles
+- id: e-042
+  kind: file
+  path: kitty-specs/gapdb-mvp-01M0Q8K6/analysis-report.md
+generator_version: '1.0'
+provenance_history: []
