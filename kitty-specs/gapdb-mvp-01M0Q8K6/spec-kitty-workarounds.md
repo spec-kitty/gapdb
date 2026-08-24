@@ -401,3 +401,26 @@ operational record, not part of the Gapdb product contract.
   workspace-descriptor deletion that cleanup left unstaged.
 - **Impact:** no product merge was repeated or rolled back. Mission state is
   `done` at 100%, and cleanup matches the actual worktree topology.
+
+## 2026-08-23 — Post-merge review assumed a Python product
+
+- **Surface:** `spec-kitty review --mode post-merge`.
+- **Symptom:** the command first refused to start because `pytest` was absent
+  from Spec Kitty's own tool environment and printed a reinstall command whose
+  `/tmp/spec-kitty-3.2.6-final.*` source no longer existed. After installing the
+  missing extra, the dead-code gate still failed because it supports public
+  Python `def`/`class` declarations only; Gapdb contains Go source. Task
+  finalization had also failed to create the issue matrix required only at this
+  late gate. Finally, generated `baseline_merge_commit` points to the WP09 done
+  transition `4985600`, after product squash commit `c364b09`, so the built-in
+  baseline-to-HEAD diff excludes the product merge itself.
+- **Recovery:** install only `pytest` into the existing Spec Kitty tool
+  environment, author the missing nine-row issue-closure matrix, and record a
+  language-scoped mission exception. Audit the actual product range from
+  pre-product parent `02512a5` through `c364b09`, using the Go compiler, full
+  normal and race suites, `go vet`, `staticcheck`, `govulncheck`, module,
+  formatting, live-caller review, and the already independent WP reviews.
+- **Impact:** the built-in command retains an honest non-applicable dead-code
+  diagnostic; the final mission report distinguishes that tooling limitation
+  from the passing Go-native product audit. No product code changed during
+  mission review.
