@@ -319,3 +319,18 @@ operational record, not part of the Gapdb product contract.
   original reviewer-authored frontmatter and body byte-for-byte otherwise.
 - **Impact:** fix mode had already resolved the correct cycle; cleanup restores
   one valid metadata carrier for later audit.
+
+## 2026-08-23 — Feedback reattachment required dispatch identity to take effect
+
+- **Surface:** WP08 fix-mode reclaim after a second independent rejection.
+- **Symptom:** the documented `planned -> planned` recovery with the absolute
+  feedback path and `--force` reported success, but the next implement claim
+  still rejected the runtime's own `review-cycle://` reference as unreadable.
+- **Recovery:** repeat the same narrowly scoped reattachment with the actual
+  reviewer agent and profile (`--agent codex-review-2 --profile
+  reviewer-renata`) plus a descriptive note, then reclaim immediately. Fix mode
+  resolved the canonical committed artifact on that retry. Remove only the
+  duplicate empty frontmatter block that the reattachment prepended.
+- **Impact:** no review content or verdict changed. The recovery needed one
+  additional status event and demonstrates that the apparently successful
+  identity-free reattachment did not fully update dispatch state.

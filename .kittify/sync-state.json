@@ -3,14 +3,13 @@
   "pending_local_commits": [
     {
       "type": "LocalCommit",
-      "git_hash": "c65d471c29dcf399ae437df30a08f6fb017921ba",
+      "git_hash": "14692a79749c300232e4f88ffa6dd6e9b9366b59",
       "mission_id": "gapdb-mvp-01M0Q8K6",
       "build_id": "2c7ead70-7e62-56bd-82a7-e0d21a616286",
       "changed_files": [
-        "kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl",
-        "kitty-specs/gapdb-mvp-01M0Q8K6/status.json"
+        "kitty-specs/gapdb-mvp-01M0Q8K6/tasks/WP08-crash-race-and-corruption-evidence/review-cycle-2.md"
       ],
-      "committed_at": "2026-08-24T00:02:15.795368+00:00"
+      "committed_at": "2026-08-24T00:02:54.080946+00:00"
     }
   ]
 }
