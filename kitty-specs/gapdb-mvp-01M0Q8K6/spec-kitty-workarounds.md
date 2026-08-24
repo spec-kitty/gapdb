@@ -334,3 +334,17 @@ operational record, not part of the Gapdb product contract.
 - **Impact:** no review content or verdict changed. The recovery needed one
   additional status event and demonstrates that the apparently successful
   identity-free reattachment did not fully update dispatch state.
+
+## 2026-08-23 — Failed ancestry preflight committed review metadata
+
+- **Surface:** WP08 final approval transition without `--force`.
+- **Symptom:** the command correctly returned failure because the lane was 260
+  commits behind `main`, but it had already committed the proposed review
+  annotation and status metadata as `95f1431` before returning the error.
+- **Recovery:** inspect every main-only path and confirm the divergence contains
+  only governance, status, and agent bookkeeping—not Gapdb product changes—then
+  repeat the approval with the narrow `--force` override. Fresh independent
+  evidence justified the separate historical-artifact override.
+- **Impact:** final approval is valid (`0fbc0ee`, annotation `bbb27b2`), but the
+  event history contains a committed annotation from an operation reported as
+  failed. The transition surface is not atomic around ancestry validation.
