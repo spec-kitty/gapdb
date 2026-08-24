@@ -383,3 +383,21 @@ operational record, not part of the Gapdb product contract.
   gate and restore it afterward, as committing that queue rewrites itself.
 - **Impact:** acceptance is evidence-backed and no empty source directories or
   fake tests were created. The Go repository layout remains unchanged.
+
+## 2026-08-23 — Post-merge invariant rejected Spec Kitty's own sync write
+
+- **Surface:** `spec-kitty merge` after the mission and all nine lanes had been
+  integrated successfully.
+- **Symptom:** the merge advanced `main` to product commit `c364b09` and began
+  recording done transitions, then failed its working-tree invariant because
+  `.kittify/sync-state.json` had been rewritten by the same governed commit
+  path. The error suggested sparse-checkout repair even though sparse checkout
+  was not involved.
+- **Recovery:** preserve only the generated sync queue in a named git stash and
+  run `spec-kitty merge --resume`. Resume detected every lane as already
+  integrated, completed all nine done transitions, synchronized the dossier,
+  ran the stale-assertion check, removed every lane worktree/branch and the
+  mission branch, and captured the retrospective. Commit the tracked lane-a
+  workspace-descriptor deletion that cleanup left unstaged.
+- **Impact:** no product merge was repeated or rolled back. Mission state is
+  `done` at 100%, and cleanup matches the actual worktree topology.
