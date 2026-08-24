@@ -424,3 +424,19 @@ operational record, not part of the Gapdb product contract.
   diagnostic; the final mission report distinguishes that tooling limitation
   from the passing Go-native product audit. No product code changed during
   mission review.
+
+## 2026-08-23 — Retrospective summary ignored the captured record
+
+- **Surface:** `spec-kitty retrospect summary` after merge terminus.
+- **Symptom:** merge committed
+  `kitty-specs/gapdb-mvp-01M0Q8K6/retrospective.yaml` with `has_findings`, but
+  the cross-mission summary reported zero missions and zero records in every
+  state. The generated record also claimed repeated implementation cycles were
+  not captured as review rejection even though the cited event ranges and
+  committed review artifacts record those rejections explicitly.
+- **Recovery:** inspect and retain the committed retrospective directly, treat
+  its cycle/force counts as raw process signals rather than semantic verdicts,
+  and run synthesis in dry-run mode. Synthesis proposed zero applications, so
+  no glossary, doctrine, or configuration change was applied.
+- **Impact:** the mission retains its retrospective evidence; only aggregation
+  and explanatory prose are unreliable in this Spec Kitty version.
