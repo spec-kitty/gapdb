@@ -1,7 +1,7 @@
 {
-  "event_count": 191,
-  "last_event_id": "01M0RNVWCR8XJ9WR6X78BP2PVH",
-  "materialized_at": "2026-08-24T01:23:55.416984+00:00",
+  "event_count": 192,
+  "last_event_id": "01M0RNZJGW61PCVEKTCM3K6SKP",
+  "materialized_at": "2026-08-24T01:25:56.380215+00:00",
   "mission_number": "",
   "mission_slug": "gapdb-mvp-01M0Q8K6",
   "mission_type": "software-dev",
@@ -305,14 +305,14 @@
       }
     },
     "WP09": {
-      "actor": "user",
+      "actor": "codex-review-1",
       "agent": "",
       "agent_profile": "reviewer-renata",
       "agent_profile_version": "1.0",
-      "force_count": 1,
+      "force_count": 2,
       "lane": "planned",
-      "last_event_id": "01M0RNVWCR8XJ9WR6X78BP2PVH",
-      "last_transition_at": "2026-08-24T01:23:55.416984+00:00",
+      "last_event_id": "01M0RNZJGW61PCVEKTCM3K6SKP",
+      "last_transition_at": "2026-08-24T01:25:56.380215+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "Implemented real Unix-socket/fsync performance acceptance, portable adoption contract, living format references, and fail-closed bounded release manifest; full normal/race/static/security/fuzz gates pass. Forced only after verifying 267 main-only commits touch governance/tooling/status artifacts, while lane-i retains the approved WP08 product lineage."
