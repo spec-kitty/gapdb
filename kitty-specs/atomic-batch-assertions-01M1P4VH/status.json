@@ -61,6 +61,9 @@
       "last_event_id": "01M1P9974PAYFHRA71H7HB5ZZ5",
       "last_transition_at": "2026-09-04T13:21:13.878831+00:00",
       "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review; force used only for inherited committed planning/status artifacts from approved WP01 coordination merge"
+      ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 3753728,
