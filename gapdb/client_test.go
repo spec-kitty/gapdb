@@ -245,3 +245,149 @@ func TestClientDeadlineAndLostResponseNeverRetry(t *testing.T) {
 		t.Fatalf("request attempts = %d, want one", requests.Load())
 	}
 }
+
+func TestClientAtomicBatchSendsAssertionsAndRequiresExactCounts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "assertions.sock")
+	listener, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	requestSeen := make(chan protocol.Request, 1)
+	go func() {
+		probe, _ := listener.Accept()
+		if probe != nil {
+			_ = probe.Close()
+		}
+		conn, _ := listener.Accept()
+		if conn == nil {
+			return
+		}
+		defer conn.Close()
+		payload, _ := protocol.ReadFrame(conn, gapdb.DefaultMaxFrameBytes)
+		request, _ := protocol.DecodeRequest(payload, gapdb.DefaultOptions().Limits)
+		requestSeen <- request
+		encoded, _ := protocol.EncodeResponse(protocol.Response{
+			SchemaVersion: 1, OK: true, RequestID: request.RequestID,
+			DatabaseID: "00112233445566778899aabbccddeeff", Operation: protocol.OperationAtomicBatch,
+			Result: gapdb.MutationResult{Revision: 7, Ack: gapdb.AckDurable, DurableThroughRevision: 7, MutationCount: 1, AssertionCount: 2},
+		})
+		_ = protocol.WriteFrame(conn, encoded, gapdb.DefaultMaxFrameBytes)
+	}()
+	client, err := gapdb.Dial(path, gapdb.ClientOptions{Timeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	batch := gapdb.Batch{Ack: gapdb.AckDurable,
+		Assertions: []gapdb.Assertion{{Key: "authority", Condition: gapdb.Condition{Kind: gapdb.ConditionRevision, ExpectedRevision: 6}}, {Key: "vacant", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}}},
+		Mutations:  []gapdb.Mutation{gapdb.NewPutMutation("created", []byte("secret"), gapdb.Condition{Kind: gapdb.ConditionAbsent}, nil)},
+	}
+	result, err := client.AtomicBatch(t.Context(), batch)
+	if err != nil || result.MutationCount != 1 || result.AssertionCount != 2 {
+		t.Fatalf("AtomicBatch() = %+v, %v", result, err)
+	}
+	request := <-requestSeen
+	arguments, ok := request.Arguments.(protocol.BatchArguments)
+	if !ok || len(arguments.Assertions) != 2 || len(arguments.Mutations) != 1 || arguments.Assertions[0].Key != "authority" {
+		t.Fatalf("wire request = %#v", request.Arguments)
+	}
+}
+
+func TestClientAtomicBatchRejectsAssertionOrMutationCountMismatch(t *testing.T) {
+	batch := gapdb.Batch{
+		Ack:        gapdb.AckDurable,
+		Assertions: []gapdb.Assertion{{Key: "guard", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}}},
+		Mutations:  []gapdb.Mutation{gapdb.NewPutMutation("created", []byte{1}, gapdb.Condition{Kind: gapdb.ConditionAbsent}, nil)},
+	}
+	for name, result := range map[string]string{
+		"assertion count removed":   `{"revision":7,"ack":"durable","durable_through_revision":7,"mutation_count":1}`,
+		"assertion count increased": `{"revision":7,"ack":"durable","durable_through_revision":7,"mutation_count":1,"assertion_count":2}`,
+		"mutation count removed":    `{"revision":7,"ack":"durable","durable_through_revision":7,"assertion_count":1}`,
+		"mutation count increased":  `{"revision":7,"ack":"durable","durable_through_revision":7,"mutation_count":2,"assertion_count":1}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := dialUnaryFixture(t, protocol.OperationAtomicBatch, result)
+			if _, err := client.AtomicBatch(t.Context(), batch); err == nil {
+				t.Fatalf("AtomicBatch accepted %s", result)
+			}
+		})
+	}
+}
+
+func TestClientRejectsAssertionCountOutsideAtomicBatch(t *testing.T) {
+	client := dialUnaryFixture(t, protocol.OperationPut, `{"revision":7,"ack":"durable","durable_through_revision":7,"assertion_count":1}`)
+	if _, err := client.Put(t.Context(), "created", []byte{1}, nil, gapdb.AckDurable); err == nil {
+		t.Fatal("Put accepted assertion_count")
+	}
+}
+
+func TestClientDecodesAssertionFailureEvidence(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "assertion-error.sock")
+	listener, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	go func() {
+		probe, _ := listener.Accept()
+		if probe != nil {
+			_ = probe.Close()
+		}
+		conn, _ := listener.Accept()
+		if conn == nil {
+			return
+		}
+		defer conn.Close()
+		payload, _ := protocol.ReadFrame(conn, gapdb.DefaultMaxFrameBytes)
+		request, _ := protocol.DecodeRequest(payload, gapdb.DefaultOptions().Limits)
+		envelope := `{"schema_version":1,"ok":false,"request_id":` + quote(request.RequestID) + `,"database_id":"00112233445566778899aabbccddeeff","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"Atomic batch assertion failed.","retry":"after_reconcile","key":"guard","assertion_index":0,"condition":"revision","expected_revision":6,"actual_revision":7,"safe_actions":["get","rebuild_batch","abort"]}}`
+		_ = protocol.WriteFrame(conn, []byte(envelope), gapdb.DefaultMaxFrameBytes)
+	}()
+	client, err := gapdb.Dial(path, gapdb.ClientOptions{Timeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	batch := gapdb.Batch{
+		Ack:        gapdb.AckMemory,
+		Assertions: []gapdb.Assertion{{Key: "guard", Condition: gapdb.Condition{Kind: gapdb.ConditionRevision, ExpectedRevision: 6}}},
+		Mutations:  []gapdb.Mutation{gapdb.NewPutMutation("created", []byte{1}, gapdb.Condition{Kind: gapdb.ConditionAbsent}, nil)},
+	}
+	_, err = client.AtomicBatch(t.Context(), batch)
+	var failure *gapdb.Error
+	if !errors.As(err, &failure) || failure.Code != gapdb.CodeConditionFailed || failure.AssertionIndex == nil || *failure.AssertionIndex != 0 || failure.ExpectedRevision == nil || *failure.ExpectedRevision != 6 {
+		t.Fatalf("AtomicBatch error = %#v (cause %v)", err, errors.Unwrap(err))
+	}
+}
+
+func dialUnaryFixture(t *testing.T, operation protocol.Operation, result string) *gapdb.Client {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "unary.sock")
+	listener, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+	go func() {
+		probe, _ := listener.Accept()
+		if probe != nil {
+			_ = probe.Close()
+		}
+		conn, _ := listener.Accept()
+		if conn == nil {
+			return
+		}
+		defer conn.Close()
+		payload, _ := protocol.ReadFrame(conn, gapdb.DefaultMaxFrameBytes)
+		request, _ := protocol.DecodeRequest(payload, gapdb.DefaultOptions().Limits)
+		envelope := `{"schema_version":1,"ok":true,"request_id":` + quote(request.RequestID) + `,"database_id":"00112233445566778899aabbccddeeff","operation":` + quote(string(operation)) + `,"result":` + result + `}`
+		_ = protocol.WriteFrame(conn, []byte(envelope), gapdb.DefaultMaxFrameBytes)
+	}()
+	client, err := gapdb.Dial(path, gapdb.ClientOptions{Timeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+	return client
+}

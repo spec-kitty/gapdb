@@ -122,6 +122,11 @@ func validateClientResult(operation string, raw []byte) error {
 		if err := json.Unmarshal(raw, &object); err != nil {
 			return err
 		}
+		if operation != "atomic_batch" {
+			if _, present := object["assertion_count"]; present {
+				return errors.New("assertion_count is invalid outside atomic_batch")
+			}
+		}
 		for _, name := range required {
 			if _, ok := object[name]; !ok {
 				return fmt.Errorf("result field %q is required", name)
@@ -187,7 +192,7 @@ func validateClientResult(operation string, raw []byte) error {
 	}:
 		return value.Record.validate()
 	case *MutationResult:
-		if value.Revision == 0 || !value.Ack.Valid() || value.DurableThroughRevision > value.Revision || value.Ack == AckDurable && value.DurableThroughRevision < value.Revision {
+		if value.Revision == 0 || !value.Ack.Valid() || value.DurableThroughRevision > value.Revision || value.Ack == AckDurable && value.DurableThroughRevision < value.Revision || value.MutationCount < 0 || value.AssertionCount < 0 {
 			return errors.New("mutation acknowledgement is invalid")
 		}
 	case *StatusResult:
@@ -455,6 +460,9 @@ func validateRemoteErrorRaw(remote *Error, raw []byte) error {
 	if err := validateRemoteError(remote); err != nil {
 		return err
 	}
+	if remote.AssertionIndex != nil && *remote.AssertionIndex < 0 {
+		return errors.New("remote assertion index is invalid")
+	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil {
 		return err
@@ -501,6 +509,13 @@ func validateRemoteErrorRaw(remote *Error, raw []byte) error {
 	if remote.Code == CodeAdminPreconditionFailed && !pair("expected_database_id", "actual_database_id") && !pair("expected_revision", "actual_revision") && !pair("expected_manifest_generation", "actual_manifest_generation") {
 		return errors.New("admin evidence requires a complete pair")
 	}
+	if remote.Code == CodeConditionFailed {
+		_, hasMutation := object["mutation_index"]
+		_, hasAssertion := object["assertion_index"]
+		if hasMutation == hasAssertion {
+			return errors.New("condition evidence must identify exactly one mutation or assertion")
+		}
+	}
 	return nil
 }
 
@@ -531,7 +546,7 @@ func clientErrorSchemaFor(code ErrorCode) (clientErrorSchema, bool) {
 	case CodeBatchTooLarge:
 		schema = clientEvidence(nil, []string{"received_operations", "maximum_operations", "received_bytes", "maximum_bytes"})
 	case CodeDuplicateKey:
-		schema = clientEvidence([]string{"key", "mutation_indexes"}, []string{"mutation_index"})
+		schema = clientEvidence([]string{"key"}, []string{"mutation_index"}, []string{"mutation_indexes", "assertion_index"})
 	case CodeExpiryNotFuture:
 		schema = clientEvidence([]string{"supplied_expiry", "effective_time"}, nil)
 	case CodeInvalidCursor:
@@ -543,7 +558,7 @@ func clientErrorSchemaFor(code ErrorCode) (clientErrorSchema, bool) {
 	case CodeRevisionMismatch:
 		schema = clientEvidence([]string{"key", "expected_revision", "actual_revision"}, nil)
 	case CodeConditionFailed:
-		schema = clientEvidence([]string{"mutation_index", "key", "condition"}, nil, []string{"actual_state", "actual_revision"})
+		schema = clientEvidence([]string{"key", "condition"}, []string{"expected_revision"}, []string{"mutation_index", "assertion_index"}, []string{"actual_state", "actual_revision"})
 	case CodeScanStale:
 		schema = clientEvidence([]string{"cursor_revision", "current_revision"}, nil)
 	case CodeRevisionAhead:

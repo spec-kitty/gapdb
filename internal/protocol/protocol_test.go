@@ -172,6 +172,87 @@ func TestBatchValidation(t *testing.T) {
 	}
 }
 
+func TestAssertionBatchPublicContractAndDefensiveOwnership(t *testing.T) {
+	t.Parallel()
+
+	limits := gapdb.DefaultOptions().Limits
+	batch := gapdb.Batch{
+		Ack: gapdb.AckDurable,
+		Assertions: []gapdb.Assertion{
+			{Key: "authority/revision", Condition: gapdb.Condition{Kind: gapdb.ConditionRevision, ExpectedRevision: 42}},
+			{Key: "authority/absent", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}},
+		},
+		Mutations: []gapdb.Mutation{gapdb.NewPutMutation("workspace/new", []byte("opaque-secret-value"), gapdb.Condition{Kind: gapdb.ConditionAbsent}, nil)},
+	}
+	if err := batch.Validate(limits); err != nil {
+		t.Fatalf("valid assertion batch rejected: %v", err)
+	}
+	clone := batch.Clone()
+	clone.Assertions[0].Key = "changed"
+	clone.Mutations[0].Value[0] = 'X'
+	if batch.Assertions[0].Key != "authority/revision" || string(batch.Mutations[0].Value) != "opaque-secret-value" {
+		t.Fatal("Batch.Clone retained caller-owned assertion or mutation storage")
+	}
+
+	assertionIndex := 1
+	err := (&gapdb.Error{AssertionIndex: &assertionIndex, SafeActions: []gapdb.SafeAction{gapdb.ActionAbort}}).Clone()
+	*err.AssertionIndex = 9
+	if assertionIndex != 1 {
+		t.Fatal("Error.Clone retained caller-owned assertion index")
+	}
+}
+
+func TestAssertionBatchRejectsVacuousDuplicateOverlapAndCombinedLimits(t *testing.T) {
+	t.Parallel()
+
+	base := gapdb.Batch{Ack: gapdb.AckMemory, Mutations: []gapdb.Mutation{gapdb.NewPutMutation("mutation", nil, gapdb.Condition{Kind: gapdb.ConditionAny}, nil)}}
+	tests := []struct {
+		name  string
+		batch gapdb.Batch
+		code  gapdb.ErrorCode
+	}{
+		{"vacuous any", gapdb.Batch{Ack: base.Ack, Assertions: []gapdb.Assertion{{Key: "guard", Condition: gapdb.Condition{Kind: gapdb.ConditionAny}}}, Mutations: base.Mutations}, gapdb.CodeInvalidRequest},
+		{"zero revision", gapdb.Batch{Ack: base.Ack, Assertions: []gapdb.Assertion{{Key: "guard", Condition: gapdb.Condition{Kind: gapdb.ConditionRevision}}}, Mutations: base.Mutations}, gapdb.CodeInvalidRequest},
+		{"duplicate assertions", gapdb.Batch{Ack: base.Ack, Assertions: []gapdb.Assertion{{Key: "guard", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}}, {Key: "guard", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}}}, Mutations: base.Mutations}, gapdb.CodeDuplicateKey},
+		{"assertion mutation overlap", gapdb.Batch{Ack: base.Ack, Assertions: []gapdb.Assertion{{Key: "mutation", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}}}, Mutations: base.Mutations}, gapdb.CodeDuplicateKey},
+		{"assertion only", gapdb.Batch{Ack: base.Ack, Assertions: []gapdb.Assertion{{Key: "guard", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}}}}, gapdb.CodeInvalidRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.batch.Validate(gapdb.DefaultOptions().Limits)
+			if !errors.Is(err, &gapdb.Error{Code: tt.code}) {
+				t.Fatalf("Validate() = %v, want %s", err, tt.code)
+			}
+		})
+	}
+
+	limits := gapdb.DefaultOptions().Limits
+	limits.MaxBatchOperations = 2
+	exact := gapdb.Batch{Ack: gapdb.AckMemory, Assertions: []gapdb.Assertion{{Key: "a", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}}}, Mutations: base.Mutations}
+	if err := exact.Validate(limits); err != nil {
+		t.Fatalf("combined exact operation maximum rejected: %v", err)
+	}
+	over := exact.Clone()
+	over.Assertions = append(over.Assertions, gapdb.Assertion{Key: "b", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}})
+	if err := over.Validate(limits); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeBatchTooLarge}) {
+		t.Fatalf("combined operation maximum+1 = %v", err)
+	}
+
+	limits = gapdb.DefaultOptions().Limits
+	// Public batch accounting preserves the engine's existing 32-byte batch
+	// base and 20-byte per-operation framing while adding assertions to the
+	// same budget.
+	limits.MaxBatchBytes = 32 + 20 + len("assert") + 20 + len("mutation")
+	exact = gapdb.Batch{Ack: gapdb.AckMemory, Assertions: []gapdb.Assertion{{Key: "assert", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}}}, Mutations: base.Mutations}
+	if err := exact.Validate(limits); err != nil {
+		t.Fatalf("combined exact byte maximum rejected: %v", err)
+	}
+	limits.MaxBatchBytes--
+	if err := exact.Validate(limits); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeBatchTooLarge}) {
+		t.Fatalf("combined byte maximum+1 = %v", err)
+	}
+}
+
 func TestFrameReadWriteBoundaries(t *testing.T) {
 	t.Parallel()
 
@@ -267,6 +348,201 @@ func TestStrictRequestDecode(t *testing.T) {
 				t.Fatalf("DecodeRequest() = %v, want %s", err, tt.code)
 			}
 		})
+	}
+}
+
+func TestAtomicBatchAssertionsStrictAdditiveWireContract(t *testing.T) {
+	t.Parallel()
+
+	limits := gapdb.DefaultOptions().Limits
+	payload := []byte(`{"schema_version":1,"request_id":"assert-1","operation":"atomic_batch","arguments":{"ack":"durable","assertions":[{"key":"authority/run","condition":{"kind":"revision","expected_revision":42}},{"key":"workspace/path","condition":{"kind":"absent"}}],"mutations":[{"kind":"put","key":"workspace/new","condition":{"kind":"absent"},"value_base64":"b3BhcXVl"}]}}`)
+	request, err := DecodeRequest(payload, limits)
+	if err != nil {
+		t.Fatalf("DecodeRequest(assertions) = %v", err)
+	}
+	arguments, ok := request.Arguments.(BatchArguments)
+	if !ok || len(arguments.Assertions) != 2 || arguments.Assertions[0].Condition.ExpectedRevision != 42 {
+		t.Fatalf("decoded assertions = %#v", request.Arguments)
+	}
+	encoded, err := EncodeRequest(request, limits)
+	if err != nil {
+		t.Fatalf("EncodeRequest(assertions) = %v", err)
+	}
+	if !bytes.Equal(encoded, payload) {
+		t.Fatalf("assertion request round trip:\n got %s\nwant %s", encoded, payload)
+	}
+
+	legacy := []byte(`{"schema_version":1,"operation":"atomic_batch","arguments":{"ack":"memory","mutations":[{"kind":"put","key":"k","condition":{"kind":"any"},"value_base64":"AQ=="}]}}`)
+	legacyRequest, err := DecodeRequest(legacy, limits)
+	if err != nil {
+		t.Fatalf("legacy assertion-free request rejected: %v", err)
+	}
+	legacyEncoded, err := EncodeRequest(legacyRequest, limits)
+	if err != nil || !bytes.Equal(legacyEncoded, legacy) {
+		t.Fatalf("legacy request changed: %s, %#v", legacyEncoded, err)
+	}
+
+	for name, malformed := range map[string][]byte{
+		"unknown assertion field": []byte(`{"schema_version":1,"operation":"atomic_batch","arguments":{"ack":"memory","assertions":[{"key":"guard","condition":{"kind":"absent"},"extra":true}],"mutations":[{"kind":"put","key":"k","condition":{"kind":"any"},"value_base64":""}]}}`),
+		"unknown condition field": []byte(`{"schema_version":1,"operation":"atomic_batch","arguments":{"ack":"memory","assertions":[{"key":"guard","condition":{"kind":"absent","extra":true}}],"mutations":[{"kind":"put","key":"k","condition":{"kind":"any"},"value_base64":""}]}}`),
+		"unknown condition kind":  []byte(`{"schema_version":1,"operation":"atomic_batch","arguments":{"ack":"memory","assertions":[{"key":"guard","condition":{"kind":"unchanged"}}],"mutations":[{"kind":"put","key":"k","condition":{"kind":"any"},"value_base64":""}]}}`),
+		"absent with revision":    []byte(`{"schema_version":1,"operation":"atomic_batch","arguments":{"ack":"memory","assertions":[{"key":"guard","condition":{"kind":"absent","expected_revision":7}}],"mutations":[{"kind":"put","key":"k","condition":{"kind":"any"},"value_base64":""}]}}`),
+		"vacuous any":             []byte(`{"schema_version":1,"operation":"atomic_batch","arguments":{"ack":"memory","assertions":[{"key":"guard","condition":{"kind":"any"}}],"mutations":[{"kind":"put","key":"k","condition":{"kind":"any"},"value_base64":""}]}}`),
+		"overlap":                 []byte(`{"schema_version":1,"operation":"atomic_batch","arguments":{"ack":"memory","assertions":[{"key":"k","condition":{"kind":"absent"}}],"mutations":[{"kind":"put","key":"k","condition":{"kind":"any"},"value_base64":""}]}}`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := DecodeRequest(malformed, limits); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeInvalidRequest}) && !errors.Is(err, &gapdb.Error{Code: gapdb.CodeDuplicateKey}) {
+				t.Fatalf("DecodeRequest() = %v", err)
+			}
+		})
+	}
+
+	var wireEnvelope struct {
+		Arguments json.RawMessage `json:"arguments"`
+	}
+	if err := json.Unmarshal(payload, &wireEnvelope); err != nil {
+		t.Fatal(err)
+	}
+	exactWireLimits := limits
+	exactWireLimits.MaxBatchBytes = len(wireEnvelope.Arguments)
+	if _, err := DecodeRequest(payload, exactWireLimits); err != nil {
+		t.Fatalf("exact assertion wire byte maximum rejected: %v", err)
+	}
+	exactWireLimits.MaxBatchBytes--
+	if _, err := DecodeRequest(payload, exactWireLimits); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeBatchTooLarge}) {
+		t.Fatalf("assertion wire byte maximum+1 = %v", err)
+	}
+}
+
+func TestAssertionResultAndFailureEvidenceWireContract(t *testing.T) {
+	t.Parallel()
+
+	success := []byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"atomic_batch","result":{"revision":43,"ack":"durable","durable_through_revision":43,"mutation_count":1,"assertion_count":2}}`)
+	response, err := DecodeResponse(success, gapdb.DefaultMaxFrameBytes)
+	if err != nil {
+		t.Fatalf("DecodeResponse(assertion result) = %v", err)
+	}
+	result, ok := response.Result.(gapdb.MutationResult)
+	if !ok || result.MutationCount != 1 || result.AssertionCount != 2 {
+		t.Fatalf("assertion result = %#v", response.Result)
+	}
+	reencoded, err := EncodeResponse(response)
+	if err != nil || !bytes.Equal(reencoded, success) {
+		t.Fatalf("assertion result round trip = %s, %v", reencoded, err)
+	}
+
+	expected, actual := gapdb.Revision(42), gapdb.Revision(44)
+	index := 0
+	failure := Response{SchemaVersion: 1, DatabaseID: "db", Operation: OperationAtomicBatch, Error: &gapdb.Error{
+		Code: gapdb.CodeConditionFailed, Message: "Atomic batch assertion failed.", Retry: gapdb.RetryAfterReconcile,
+		Key: "authority/run", AssertionIndex: &index, Condition: string(gapdb.ConditionRevision), ExpectedRevision: &expected, ActualRevision: &actual,
+		SafeActions: []gapdb.SafeAction{gapdb.ActionGet, gapdb.ActionRebuildBatch, gapdb.ActionAbort},
+	}}
+	encoded, err := EncodeResponse(failure)
+	if err != nil {
+		t.Fatalf("EncodeResponse(assertion failure) = %v", err)
+	}
+	if bytes.Contains(encoded, []byte("opaque-secret-value")) || len(encoded) >= 4096 {
+		t.Fatalf("unsafe assertion diagnostic length=%d body=%s", len(encoded), encoded)
+	}
+	decoded, err := DecodeResponse(encoded, gapdb.DefaultMaxFrameBytes)
+	if err != nil || decoded.Error == nil || decoded.Error.AssertionIndex == nil || *decoded.Error.AssertionIndex != 0 {
+		t.Fatalf("assertion failure round trip = %#v, %v", decoded.Error, err)
+	}
+
+	absentFailure := []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"Atomic batch assertion failed.","retry":"after_reconcile","key":"workspace/path","assertion_index":1,"condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`)
+	absentDecoded, err := DecodeResponse(absentFailure, gapdb.DefaultMaxFrameBytes)
+	if err != nil || absentDecoded.Error == nil || absentDecoded.Error.AssertionIndex == nil || *absentDecoded.Error.AssertionIndex != 1 || absentDecoded.Error.ActualState != "present" {
+		t.Fatalf("absence assertion failure = %#v, %v", absentDecoded.Error, err)
+	}
+	absentEncoded, err := EncodeResponse(absentDecoded)
+	if err != nil || !bytes.Equal(absentEncoded, absentFailure) {
+		t.Fatalf("absence assertion failure round trip = %s, %v", absentEncoded, err)
+	}
+
+	legacy := []byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"atomic_batch","result":{"revision":43,"ack":"durable","durable_through_revision":43,"mutation_count":1}}`)
+	legacyDecoded, err := DecodeResponse(legacy, gapdb.DefaultMaxFrameBytes)
+	if err != nil {
+		t.Fatalf("legacy assertion-free result rejected: %v", err)
+	}
+	legacyEncoded, err := EncodeResponse(legacyDecoded)
+	if err != nil || !bytes.Equal(legacyEncoded, legacy) {
+		t.Fatalf("legacy assertion-free result changed: %s, %v", legacyEncoded, err)
+	}
+
+	for name, malformed := range map[string][]byte{
+		"assertion count on put":   []byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"put","result":{"revision":43,"ack":"durable","durable_through_revision":43,"assertion_count":1}}`),
+		"negative assertion index": []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","assertion_index":-1,"condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
+		"both condition indexes":   []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","mutation_index":0,"assertion_index":0,"condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
+		"neither condition index":  []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := DecodeResponse(malformed, gapdb.DefaultMaxFrameBytes); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeInvalidRequest}) {
+				t.Fatalf("DecodeResponse() = %v", err)
+			}
+		})
+	}
+}
+
+func TestAssertionDiagnosticsAreBoundedAndValueFree(t *testing.T) {
+	t.Parallel()
+
+	secret := strings.Repeat("secret-value-marker/", 200)
+	key := strings.Repeat("k", gapdb.DefaultOptions().Limits.MaxKeyBytes)
+	batch := gapdb.Batch{
+		Ack:        gapdb.AckMemory,
+		Assertions: []gapdb.Assertion{{Key: key, Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}}},
+		Mutations:  []gapdb.Mutation{gapdb.NewPutMutation(key, []byte(secret), gapdb.Condition{Kind: gapdb.ConditionAny}, nil)},
+	}
+	err := batch.Validate(gapdb.DefaultOptions().Limits)
+	if !errors.Is(err, &gapdb.Error{Code: gapdb.CodeDuplicateKey}) {
+		t.Fatalf("Validate() = %v", err)
+	}
+	encoded, marshalErr := json.Marshal(err)
+	if marshalErr != nil {
+		t.Fatal(marshalErr)
+	}
+	if len(encoded) >= 4096 || bytes.Contains(encoded, []byte(secret)) || bytes.Contains([]byte(err.Error()), []byte(secret)) {
+		t.Fatalf("unsafe diagnostic length=%d", len(encoded))
+	}
+}
+
+func TestAssertionContractMutantControls(t *testing.T) {
+	t.Parallel()
+
+	limits := gapdb.DefaultOptions().Limits
+	base := gapdb.Batch{
+		Ack:        gapdb.AckMemory,
+		Assertions: []gapdb.Assertion{{Key: "guard", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}}},
+		Mutations:  []gapdb.Mutation{gapdb.NewPutMutation("value", nil, gapdb.Condition{Kind: gapdb.ConditionAny}, nil)},
+	}
+	for id, mutate := range map[string]func(*gapdb.Batch, *gapdb.Limits){
+		"M-ALLOW-ASSERTION-ANY": func(batch *gapdb.Batch, _ *gapdb.Limits) {
+			batch.Assertions[0].Condition.Kind = gapdb.ConditionAny
+		},
+		"M-REMOVE-DISJOINTNESS": func(batch *gapdb.Batch, _ *gapdb.Limits) {
+			batch.Assertions[0].Key = batch.Mutations[0].Key
+		},
+		"M-MUTATION-ONLY-OP-LIMIT": func(_ *gapdb.Batch, limits *gapdb.Limits) {
+			limits.MaxBatchOperations = 1
+		},
+		"M-MUTATION-ONLY-BYTE-LIMIT": func(batch *gapdb.Batch, limits *gapdb.Limits) {
+			limits.MaxBatchBytes = 32 + 20 + len(batch.Mutations[0].Key)
+		},
+	} {
+		t.Run(id, func(t *testing.T) {
+			candidate := base.Clone()
+			candidateLimits := limits
+			mutate(&candidate, &candidateLimits)
+			if err := candidate.Validate(candidateLimits); err == nil {
+				t.Fatalf("%s survived contract validation", id)
+			}
+		})
+	}
+
+	strictFieldMutant := []byte(`{"schema_version":1,"operation":"atomic_batch","arguments":{"ack":"memory","assertions":[{"key":"guard","condition":{"kind":"absent"},"unchecked":true}],"mutations":[{"kind":"put","key":"value","condition":{"kind":"any"},"value_base64":""}]}}`)
+	if _, err := DecodeRequest(strictFieldMutant, limits); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeInvalidRequest}) {
+		t.Fatalf("M-RELAX-STRICT-ASSERTION-FIELDS survived: %v", err)
 	}
 }
 
