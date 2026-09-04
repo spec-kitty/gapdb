@@ -12,5 +12,7 @@
   "purpose_tldr": "Add first-class no-write transactional condition checks to GapDB for Spec Kitty authority guards.",
   "slug": "atomic-batch-assertions-01M1P4VH",
   "target_branch": "feat/atomic-batch-assertions",
-  "topology": "lanes_with_coord"
+  "topology": "lanes_with_coord",
+  "vcs": "git",
+  "vcs_locked_at": "2026-09-04T12:15:49.162264+00:00"
 }
