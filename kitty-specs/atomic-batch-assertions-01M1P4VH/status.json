@@ -29,7 +29,8 @@
       "model": "__resolved_model_absent__",
       "notes": [
         "Implemented public assertion model, combined validation/ownership rules, strict additive Unix/client protocol, legacy compatibility, and mutant-sensitive tests. Focused x20, race x3, full repository, vet, and staticcheck green at a336c7a. Force is limited to pre-existing planning artifacts inherited by the runtime-created lane branch.",
-        "Review cycle 1 repaired at 543606e: assertion failure evidence is condition-aware in both strict decoders; assertion diagnostics shape legal maximum keys, accept 4095 bytes, refuse 4096, and remain value-free. Focused x20, race x3, full repository, vet, and staticcheck green. Force is limited to pre-existing planning artifacts inherited by the runtime-created lane branch."
+        "Review cycle 1 repaired at 543606e: assertion failure evidence is condition-aware in both strict decoders; assertion diagnostics shape legal maximum keys, accept 4095 bytes, refuse 4096, and remain value-free. Focused x20, race x3, full repository, vet, and staticcheck green. Force is limited to pre-existing planning artifacts inherited by the runtime-created lane branch.",
+        "Review cycle 2 repaired at 55dba4f: assertion_index evidence is accepted only for atomic_batch in protocol and public-client validators; put/CAS/delete refusal controls and mutation-error compatibility are green. Focused x20, race x3, full repository, vet, staticcheck, format/diff green. Force is limited to pre-existing planning artifacts inherited by the runtime-created lane branch."
       ],
       "provider": "__resolved_provider_absent__",
       "review": null,
