@@ -1,7 +1,7 @@
 {
-  "event_count": 27,
-  "last_event_id": "01M1P9Y1YA49D791YXB8RBRD61",
-  "materialized_at": "2026-09-04T13:32:36.682032+00:00",
+  "event_count": 28,
+  "last_event_id": "01M1P9YWYW1Y7YT4ETTKHFX8MH",
+  "materialized_at": "2026-09-04T13:33:04.348322+00:00",
   "mission_number": "",
   "mission_slug": "atomic-batch-assertions-01M1P4VH",
   "mission_type": "software-dev",
@@ -11,9 +11,9 @@
     "canceled": 0,
     "claimed": 0,
     "done": 1,
-    "for_review": 1,
+    "for_review": 0,
     "in_progress": 0,
-    "in_review": 0,
+    "in_review": 1,
     "planned": 1
   },
   "work_packages": {
@@ -54,12 +54,12 @@
     "WP02": {
       "actor": "codex",
       "agent": "codex",
-      "agent_profile": "implementer-ivan",
+      "agent_profile": "reviewer-renata",
       "agent_profile_version": "1.0",
       "force_count": 3,
-      "lane": "for_review",
-      "last_event_id": "01M1P9Y1YA49D791YXB8RBRD61",
-      "last_transition_at": "2026-09-04T13:32:36.682032+00:00",
+      "lane": "in_review",
+      "last_event_id": "01M1P9YWYW1Y7YT4ETTKHFX8MH",
+      "last_transition_at": "2026-09-04T13:33:04.348322+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "Ready for review; force used only for inherited committed planning/status artifacts from approved WP01 coordination merge"
@@ -72,9 +72,9 @@
         "reviewer": "user",
         "verdict": "changes_requested"
       },
-      "role": "implementer",
-      "shell_pid": 3237459,
-      "shell_pid_created_at": "1788528749.22",
+      "role": "reviewer",
+      "shell_pid": 3753728,
+      "shell_pid_created_at": "1788448726.47",
       "subtasks": {
         "T005": "done",
         "T006": "done",
