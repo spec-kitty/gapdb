@@ -25,6 +25,7 @@ type assertionFailureFingerprint struct {
 	reservedRevisionEnd gapdb.Revision
 	activeWALStart      gapdb.Revision
 	expiries            []string
+	expiryIndex         []string
 	expiryKeys          int
 	historyCommits      int
 	historyEvents       int
@@ -57,6 +58,9 @@ func captureAssertionFailureFingerprint(t *testing.T, state *DatabaseState, allo
 	for _, candidate := range state.expiries {
 		fingerprint.expiries = append(fingerprint.expiries, fmt.Sprintf("%s/%d/%s", candidate.key, candidate.revision, candidate.at.UTC().Format(time.RFC3339Nano)))
 	}
+	for key, candidate := range state.expiryByKey {
+		fingerprint.expiryIndex = append(fingerprint.expiryIndex, fmt.Sprintf("%s/%s/%d/%s/%d", key, candidate.key, candidate.revision, candidate.at.UTC().Format(time.RFC3339Nano), candidate.index))
+	}
 	fingerprint.watchers = len(state.watchers)
 	state.mu.RUnlock()
 	fingerprint.activeWatches = state.activeWatches.Load()
@@ -81,6 +85,7 @@ func captureAssertionFailureFingerprint(t *testing.T, state *DatabaseState, allo
 	fingerprint.logBarriers = log.barriers
 	log.mu.Unlock()
 	sort.Strings(fingerprint.expiries)
+	sort.Strings(fingerprint.expiryIndex)
 	return fingerprint
 }
 
@@ -145,6 +150,148 @@ func TestAssertionFailureIsFirstOrderedPredicateAndHasZeroEffects(t *testing.T) 
 	}
 }
 
+func TestSimultaneouslyFailingAssertionsHonorRequestOrderAndKillReverseIteration(t *testing.T) {
+	log := &fakeLog{durable: 4}
+	allocator := &countingAllocator{next: 5}
+	state := newTestState(t, testConfig{
+		log: log, allocator: allocator, current: 4, durable: 4,
+		records: []gapdb.Record{
+			gapdb.NewRecord("guard/first", []byte("first-secret"), 2, nil),
+			gapdb.NewRecord("guard/second", []byte("second-secret"), 4, nil),
+		},
+	})
+	t.Cleanup(func() { closeState(t, state) })
+	first := gapdb.Assertion{Key: "guard/first", Condition: gapdb.Condition{Kind: gapdb.ConditionRevision, ExpectedRevision: 1}}
+	second := gapdb.Assertion{Key: "guard/second", Condition: gapdb.Condition{Kind: gapdb.ConditionRevision, ExpectedRevision: 3}}
+	for _, test := range []struct {
+		name         string
+		assertions   []gapdb.Assertion
+		wantKey      string
+		wantExpected gapdb.Revision
+		wantActual   gapdb.Revision
+	}{
+		{"first_then_second", []gapdb.Assertion{first, second}, "guard/first", 1, 2},
+		{"second_then_first", []gapdb.Assertion{second, first}, "guard/second", 3, 4},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := state.AtomicBatch(t.Context(), gapdb.Batch{
+				Ack:        gapdb.AckDurable,
+				Assertions: test.assertions,
+				Mutations:  []gapdb.Mutation{gapdb.NewPutMutation("candidate", []byte("must-not-write"), gapdb.Condition{Kind: gapdb.ConditionAbsent}, nil)},
+			})
+			var failure *gapdb.Error
+			if !errors.As(err, &failure) || failure.Code != gapdb.CodeConditionFailed || failure.AssertionIndex == nil || *failure.AssertionIndex != 0 || failure.Key != test.wantKey || failure.Condition != string(gapdb.ConditionRevision) || failure.ExpectedRevision == nil || *failure.ExpectedRevision != test.wantExpected || failure.ActualRevision == nil || *failure.ActualRevision != test.wantActual || failure.ActualState != "" || failure.MutationIndex != nil || failure.OperationApplied {
+				t.Fatalf("ordered assertion failure = %#v", err)
+			}
+		})
+	}
+	if allocator.calls != 0 || len(log.frames) != 0 || log.barriers != 0 {
+		t.Fatalf("ordered assertion refusals changed persistence: allocations=%d frames=%d barriers=%d", allocator.calls, len(log.frames), log.barriers)
+	}
+}
+
+func TestExpiredPhysicalAssertionStateIsNeverLazilyCleaned(t *testing.T) {
+	now := time.Date(2026, 9, 4, 8, 30, 0, 0, time.UTC)
+	expiredAt := now.Add(-time.Minute)
+	log := &fakeLog{durable: 3}
+	allocator := &countingAllocator{next: 4}
+	state := newTestState(t, testConfig{
+		clock: clockAt(now), log: log, allocator: allocator, current: 3, durable: 3,
+		records: []gapdb.Record{
+			gapdb.NewRecord("guard/expired", []byte("expired-secret"), 2, &expiredAt),
+			gapdb.NewRecord("guard/fails-later", []byte("live-secret"), 3, nil),
+		},
+	})
+	t.Cleanup(func() { closeState(t, state) })
+	before := captureAssertionFailureFingerprint(t, state, allocator, log)
+	physicalBefore := capturePhysicalExpiryEvidence(t, state, "guard/expired")
+
+	_, err := state.AtomicBatch(t.Context(), gapdb.Batch{
+		Ack: gapdb.AckDurable,
+		Assertions: []gapdb.Assertion{
+			{Key: "guard/expired", Condition: gapdb.Condition{Kind: gapdb.ConditionAbsent}},
+			{Key: "guard/fails-later", Condition: gapdb.Condition{Kind: gapdb.ConditionRevision, ExpectedRevision: 2}},
+		},
+		Mutations: []gapdb.Mutation{gapdb.NewPutMutation("candidate", []byte("must-not-write"), gapdb.Condition{Kind: gapdb.ConditionAbsent}, nil)},
+	})
+	var failure *gapdb.Error
+	if !errors.As(err, &failure) || failure.AssertionIndex == nil || *failure.AssertionIndex != 1 || failure.Key != "guard/fails-later" {
+		t.Fatalf("later assertion failure = %#v", err)
+	}
+	after := captureAssertionFailureFingerprint(t, state, allocator, log)
+	physicalAfter := capturePhysicalExpiryEvidence(t, state, "guard/expired")
+	if !reflect.DeepEqual(after, before) || !physicalExpiryEvidenceEqual(physicalAfter, physicalBefore) {
+		t.Fatalf("expired asserted record was changed:\nbefore=%+v\nafter=%+v\nphysical before=%+v\nphysical after=%+v", before, after, physicalBefore, physicalAfter)
+	}
+
+	// Controlled lazy-cleanup mutants prove that each physical-state component
+	// above is independently observed by the permanent failure fingerprint. Stop
+	// the writer before applying test-only corruptions to its owned structures.
+	closeState(t, state)
+	mutantBaseline := captureAssertionFailureFingerprint(t, state, allocator, log)
+	state.mu.Lock()
+	candidate := state.expiryByKey["guard/expired"]
+	delete(state.expiryByKey, "guard/expired")
+	state.mu.Unlock()
+	if reflect.DeepEqual(captureAssertionFailureFingerprint(t, state, allocator, log), mutantBaseline) {
+		t.Fatal("expiry-by-key deletion mutant escaped the fingerprint")
+	}
+	state.mu.Lock()
+	state.expiryByKey["guard/expired"] = candidate
+	originalHeap := state.expiries
+	state.expiries = nil
+	state.mu.Unlock()
+	if reflect.DeepEqual(captureAssertionFailureFingerprint(t, state, allocator, log), mutantBaseline) {
+		t.Fatal("expiry-heap deletion mutant escaped the fingerprint")
+	}
+	state.mu.Lock()
+	state.expiries = originalHeap
+	record := state.records["guard/expired"]
+	delete(state.records, "guard/expired")
+	state.mu.Unlock()
+	if reflect.DeepEqual(captureAssertionFailureFingerprint(t, state, allocator, log), mutantBaseline) {
+		t.Fatal("physical-record deletion mutant escaped the fingerprint")
+	}
+	state.mu.Lock()
+	state.records["guard/expired"] = record
+	state.mu.Unlock()
+}
+
+type physicalExpiryEvidence struct {
+	record          gapdb.Record
+	candidate       *expiryCandidate
+	candidateValue  expiryCandidate
+	heapCandidate   *expiryCandidate
+	heapLength      int
+	expiryIndexSize int
+}
+
+func capturePhysicalExpiryEvidence(t *testing.T, state *DatabaseState, key string) physicalExpiryEvidence {
+	t.Helper()
+	state.mu.RLock()
+	defer state.mu.RUnlock()
+	record, exists := state.records[key]
+	if !exists {
+		t.Fatalf("physical record %q is missing", key)
+	}
+	candidate, exists := state.expiryByKey[key]
+	if !exists || candidate.index < 0 || candidate.index >= len(state.expiries) {
+		t.Fatalf("expiry candidate %q is missing or invalid: %+v", key, candidate)
+	}
+	return physicalExpiryEvidence{
+		record:          record.Clone(),
+		candidate:       candidate,
+		candidateValue:  *candidate,
+		heapCandidate:   state.expiries[candidate.index],
+		heapLength:      len(state.expiries),
+		expiryIndexSize: len(state.expiryByKey),
+	}
+}
+
+func physicalExpiryEvidenceEqual(left, right physicalExpiryEvidence) bool {
+	return reflect.DeepEqual(left.record, right.record) && left.candidate == right.candidate && left.candidateValue == right.candidateValue && left.heapCandidate == right.heapCandidate && left.heapLength == right.heapLength && left.expiryIndexSize == right.expiryIndexSize
+}
+
 func TestAssertionFailureEvidenceDistinguishesAbsentAndPresent(t *testing.T) {
 	state := newTestState(t, testConfig{records: []gapdb.Record{gapdb.NewRecord("present", []byte("secret"), 2, nil)}, current: 2})
 	t.Cleanup(func() { closeState(t, state) })
@@ -178,12 +325,14 @@ func TestAssertionFailureEvidenceDistinguishesAbsentAndPresent(t *testing.T) {
 }
 
 func TestSuccessfulAssertionsWriteOnlyMutationsAndReportExactCounts(t *testing.T) {
+	expires := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
 	log := &fakeLog{}
 	state := newTestState(t, testConfig{log: log, records: []gapdb.Record{
-		gapdb.NewRecord("guard", []byte("unchanged"), 2, nil),
+		gapdb.NewRecord("guard", []byte("unchanged"), 2, &expires),
 		gapdb.NewRecord("update", []byte("old"), 2, nil),
 	}, current: 2})
 	t.Cleanup(func() { closeState(t, state) })
+	physicalBefore := capturePhysicalExpiryEvidence(t, state, "guard")
 	watch, err := state.Watch(t.Context(), "", 2)
 	if err != nil {
 		t.Fatal(err)
@@ -206,6 +355,10 @@ func TestSuccessfulAssertionsWriteOnlyMutationsAndReportExactCounts(t *testing.T
 	guard, err := state.Get("guard")
 	if err != nil || guard.Revision != 2 || string(guard.Value) != "unchanged" {
 		t.Fatalf("asserted record changed: %+v, %v", guard, err)
+	}
+	physicalAfter := capturePhysicalExpiryEvidence(t, state, "guard")
+	if !physicalExpiryEvidenceEqual(physicalAfter, physicalBefore) {
+		t.Fatalf("successful assertion changed expiring physical state:\nbefore=%+v\nafter=%+v", physicalBefore, physicalAfter)
 	}
 	if _, err := state.Get("vacant"); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeNotFound}) {
 		t.Fatalf("absence assertion wrote a record: %v", err)

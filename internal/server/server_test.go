@@ -195,6 +195,76 @@ func TestAssertionBatchResponseLossRemainsAmbiguousAndRecoversOnlyMutations(t *t
 	}
 }
 
+func TestFailedAssertionResponseLossRemainsAmbiguousAndRestartsWithZeroEffects(t *testing.T) {
+	dir := t.TempDir()
+	seed, err := server.Open(server.Config{Directory: dir, Options: gapdb.DefaultOptions(), ToolVersion: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedClient, err := gapdb.Dial(seed.SocketPath(), gapdb.ClientOptions{Timeout: time.Second})
+	if err != nil {
+		_ = seed.Close(context.Background())
+		t.Fatal(err)
+	}
+	guard, err := seedClient.Put(t.Context(), "authority", []byte("unchanged"), nil, gapdb.AckDurable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = seedClient.Close()
+	if err := seed.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	injector := faultfs.NewInjector(89, faultfs.Rule{
+		Point: faultfs.PointResponsePublish, Phase: faultfs.Before, Occurrence: 1, Seed: 89,
+		Err: errors.New("failed assertion response deliberately lost"),
+	})
+	srv, err := server.Open(server.Config{Directory: dir, Options: gapdb.DefaultOptions(), ToolVersion: "test", FS: faultfs.NewOS(injector)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := gapdb.Dial(srv.SocketPath(), gapdb.ClientOptions{Timeout: time.Second})
+	if err != nil {
+		_ = srv.Close(context.Background())
+		t.Fatal(err)
+	}
+	result, err := client.AtomicBatch(t.Context(), gapdb.Batch{
+		Ack:        gapdb.AckDurable,
+		Assertions: []gapdb.Assertion{{Key: "authority", Condition: gapdb.Condition{Kind: gapdb.ConditionRevision, ExpectedRevision: guard.Revision + 1}}},
+		Mutations:  []gapdb.Mutation{gapdb.NewPutMutation("candidate", []byte("must-not-write"), gapdb.Condition{Kind: gapdb.ConditionAbsent}, nil)},
+	})
+	var transport *gapdb.TransportError
+	if !errors.As(err, &transport) || !transport.Ambiguous || result.Revision != 0 || result.MutationCount != 0 || result.AssertionCount != 0 {
+		t.Fatalf("lost failed-assertion response = %+v, %#v", result, err)
+	}
+	_ = client.Close()
+	if err := srv.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	restarted, err := server.Open(server.Config{Directory: dir, Options: gapdb.DefaultOptions(), ToolVersion: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restarted.Close(context.Background())
+	reconciler, err := gapdb.Dial(restarted.SocketPath(), gapdb.ClientOptions{Timeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reconciler.Close()
+	status, err := reconciler.Status(t.Context())
+	if err != nil || status.CurrentRevision != guard.Revision || status.DurableThroughRevision != guard.Revision {
+		t.Fatalf("restart status = %+v, %v", status, err)
+	}
+	recoveredGuard, err := reconciler.Get(t.Context(), "authority")
+	if err != nil || recoveredGuard.Revision != guard.Revision || string(recoveredGuard.Value) != "unchanged" {
+		t.Fatalf("recovered guard = %+v, %v", recoveredGuard, err)
+	}
+	if _, err := reconciler.Get(t.Context(), "candidate"); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeNotFound}) {
+		t.Fatalf("failed assertion recovered candidate: %v", err)
+	}
+}
+
 func TestReviewerAdminResultsUseLockedWireShapes(t *testing.T) {
 	dir := t.TempDir()
 	srv, err := server.Open(server.Config{Directory: dir, Options: gapdb.DefaultOptions(), ToolVersion: "test"})
