@@ -15,20 +15,36 @@ const assertionContentionTrials = 1000
 
 type assertionRaceHistory struct {
 	name              string
+	authorityKey      string
+	targetKey         string
+	condition         gapdb.Condition
 	authorityRevision gapdb.Revision
+	authorityRecord   gapdb.Record
 	guardedRevision   gapdb.Revision
 	guardedError      error
+	targetRecord      gapdb.Record
+	targetError       error
 }
 
 func (history assertionRaceHistory) valid() bool {
-	if history.authorityRevision == 0 {
+	if history.authorityRevision == 0 || history.authorityRecord.Key != history.authorityKey || history.authorityRecord.Revision != history.authorityRevision || string(history.authorityRecord.Value) != "generation-2" {
 		return false
 	}
 	if history.guardedError == nil {
-		return history.guardedRevision != 0 && history.guardedRevision < history.authorityRevision
+		return history.guardedRevision != 0 && history.guardedRevision < history.authorityRevision && history.targetError == nil && history.targetRecord.Key == history.targetKey && history.targetRecord.Revision == history.guardedRevision && string(history.targetRecord.Value) == "guarded"
 	}
 	var failure *gapdb.Error
-	return errors.As(history.guardedError, &failure) && failure.Code == gapdb.CodeConditionFailed && history.guardedRevision == 0
+	if !errors.As(history.guardedError, &failure) || failure.Code != gapdb.CodeConditionFailed || history.guardedRevision != 0 || failure.AssertionIndex == nil || *failure.AssertionIndex != 0 || failure.MutationIndex != nil || failure.Key != history.authorityKey || failure.Condition != string(history.condition.Kind) || failure.OperationApplied {
+		return false
+	}
+	if history.condition.Kind == gapdb.ConditionRevision {
+		if failure.ExpectedRevision == nil || *failure.ExpectedRevision != history.condition.ExpectedRevision || failure.ActualRevision == nil || *failure.ActualRevision != history.authorityRevision || failure.ActualState != "" {
+			return false
+		}
+	} else if failure.ExpectedRevision != nil || failure.ActualRevision == nil || *failure.ActualRevision != history.authorityRevision || failure.ActualState != "" {
+		return false
+	}
+	return errors.Is(history.targetError, &gapdb.Error{Code: gapdb.CodeNotFound}) && history.targetRecord.Revision == 0
 }
 
 func TestRealUnixStaleAuthorityContentionHasOnlyTwoValidHistories(t *testing.T) {
@@ -40,7 +56,7 @@ func TestRealUnixStaleAuthorityContentionHasOnlyTwoValidHistories(t *testing.T) 
 	}
 	defer second.Close()
 
-	revisionTrials, absenceTrials := 0, 0
+	revisionTrials, absenceTrials, guardedFirst, authorityFirst, staleEffects := 0, 0, 0, 0, 0
 	for trial := 0; trial < assertionContentionTrials; trial++ {
 		kind := "revision"
 		if trial%2 == 1 {
@@ -101,14 +117,33 @@ func TestRealUnixStaleAuthorityContentionHasOnlyTwoValidHistories(t *testing.T) 
 		if authority.err != nil {
 			t.Fatalf("%s authority mutation: %v", name, authority.err)
 		}
-		history := assertionRaceHistory{name: name, authorityRevision: authority.revision, guardedRevision: guarded.revision, guardedError: guarded.err}
+		authorityRecord, authorityGetErr := backend.client.Get(t.Context(), authorityKey)
+		if authorityGetErr != nil {
+			t.Fatalf("%s authority reconciliation: %v", name, authorityGetErr)
+		}
+		targetRecord, targetErr := backend.client.Get(t.Context(), targetKey)
+		history := assertionRaceHistory{
+			name: name, authorityKey: authorityKey, targetKey: targetKey, condition: condition,
+			authorityRevision: authority.revision, authorityRecord: authorityRecord,
+			guardedRevision: guarded.revision, guardedError: guarded.err,
+			targetRecord: targetRecord, targetError: targetErr,
+		}
 		if !history.valid() {
-			t.Fatalf("illegal serialization %s: authority=%d guarded=%d err=%v", history.name, history.authorityRevision, history.guardedRevision, history.guardedError)
+			t.Fatalf("illegal serialization %s: authority=%d/%+v guarded=%d err=%v target=%+v/%v", history.name, history.authorityRevision, history.authorityRecord, history.guardedRevision, history.guardedError, history.targetRecord, history.targetError)
+		}
+		if guarded.err == nil {
+			guardedFirst++
+		} else {
+			authorityFirst++
+			if targetErr == nil {
+				staleEffects++
+			}
 		}
 	}
-	if revisionTrials != 500 || absenceTrials != 500 {
-		t.Fatalf("trial census revision=%d absence=%d", revisionTrials, absenceTrials)
+	if revisionTrials != 500 || absenceTrials != 500 || guardedFirst == 0 || authorityFirst == 0 || staleEffects != 0 || guardedFirst+authorityFirst != assertionContentionTrials {
+		t.Fatalf("trial census revision=%d absence=%d guarded_first=%d authority_first=%d stale_effects=%d", revisionTrials, absenceTrials, guardedFirst, authorityFirst, staleEffects)
 	}
+	t.Logf("ASSERTION_CONTENTION_COUNTS=revision:%d absence:%d guarded_first:%d authority_first:%d stale_effects:%d", revisionTrials, absenceTrials, guardedFirst, authorityFirst, staleEffects)
 }
 
 func TestOutsideWriterPreReadMutantIsRejectedByTwoHistoryOracle(t *testing.T) {
@@ -132,7 +167,16 @@ func TestOutsideWriterPreReadMutantIsRejectedByTwoHistoryOracle(t *testing.T) {
 		Ack:       gapdb.AckMemory,
 		Mutations: []gapdb.Mutation{gapdb.NewPutMutation("outside-writer/target", []byte("unsafe"), gapdb.Condition{Kind: gapdb.ConditionAbsent}, nil)},
 	})
-	mutant := assertionRaceHistory{name: "M-ASSERTION-OUTSIDE-WRITER", authorityRevision: changed.Revision, guardedRevision: guarded.Revision, guardedError: err}
+	authorityRecord, getErr := backend.client.Get(t.Context(), "outside-writer/authority")
+	if getErr != nil {
+		t.Fatal(getErr)
+	}
+	targetRecord, targetErr := backend.client.Get(t.Context(), "outside-writer/target")
+	mutant := assertionRaceHistory{
+		name: "M-ASSERTION-OUTSIDE-WRITER", authorityKey: "outside-writer/authority", targetKey: "outside-writer/target",
+		condition: gapdb.Condition{Kind: gapdb.ConditionRevision, ExpectedRevision: observed.Revision}, authorityRevision: changed.Revision, authorityRecord: authorityRecord,
+		guardedRevision: guarded.Revision, guardedError: err, targetRecord: targetRecord, targetError: targetErr,
+	}
 	if mutant.valid() {
 		t.Fatalf("outside-writer mutant satisfied the two-history oracle: %+v", mutant)
 	}
@@ -145,4 +189,44 @@ func TestOutsideWriterPreReadMutantIsRejectedByTwoHistoryOracle(t *testing.T) {
 	if !errors.Is(err, &gapdb.Error{Code: gapdb.CodeConditionFailed}) {
 		t.Fatalf("production stale assertion = %v", err)
 	}
+}
+
+func TestAssertionContentionOracleKillsStateAndResultSubstitutions(t *testing.T) {
+	authority := gapdb.Record{Key: "authority", Revision: 2, Value: []byte("generation-2")}
+	target := gapdb.Record{Key: "target", Revision: 1, Value: []byte("guarded")}
+	index, expected, actual := 0, gapdb.Revision(1), gapdb.Revision(2)
+	failure := &gapdb.Error{
+		Code: gapdb.CodeConditionFailed, AssertionIndex: &index, Key: "authority", Condition: string(gapdb.ConditionRevision),
+		ExpectedRevision: &expected, ActualRevision: &actual,
+	}
+	base := assertionRaceHistory{
+		name: "controlled", authorityKey: "authority", targetKey: "target",
+		condition: gapdb.Condition{Kind: gapdb.ConditionRevision, ExpectedRevision: 1}, authorityRevision: 2, authorityRecord: authority,
+	}
+	t.Run("both_legal_histories", func(t *testing.T) {
+		success := base
+		success.guardedRevision, success.targetRecord = 1, target
+		if !success.valid() {
+			t.Fatal("guarded-first legal history rejected")
+		}
+		refusal := base
+		refusal.guardedError, refusal.targetError = failure, &gapdb.Error{Code: gapdb.CodeNotFound}
+		if !refusal.valid() {
+			t.Fatal("authority-first legal history rejected")
+		}
+	})
+	t.Run("mutate_then_error", func(t *testing.T) {
+		mutant := base
+		mutant.guardedError, mutant.targetRecord = failure, target
+		if mutant.valid() {
+			t.Fatal("mutate-then-error mutant survived")
+		}
+	})
+	t.Run("success_without_publication", func(t *testing.T) {
+		mutant := base
+		mutant.guardedRevision, mutant.targetError = 1, &gapdb.Error{Code: gapdb.CodeNotFound}
+		if mutant.valid() {
+			t.Fatal("success-without-publication mutant survived")
+		}
+	})
 }

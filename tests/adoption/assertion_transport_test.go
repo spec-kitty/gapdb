@@ -156,7 +156,22 @@ func TestAssertionWatchesContainOnlyLiveAndRecoveredMutationEvents(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	requireWatchMutationPair(t, live, result.Revision)
+	_, err = backend.client.AtomicBatch(t.Context(), gapdb.Batch{
+		Ack:        gapdb.AckMemory,
+		Assertions: []gapdb.Assertion{{Key: "watch/guard", Condition: gapdb.Condition{Kind: gapdb.ConditionRevision, ExpectedRevision: guard.Revision + 99}}},
+		Mutations:  []gapdb.Mutation{gapdb.NewPutMutation("watch/failed-target", []byte("must-not-appear"), gapdb.Condition{Kind: gapdb.ConditionAbsent}, nil)},
+	})
+	if !errors.Is(err, &gapdb.Error{Code: gapdb.CodeConditionFailed}) {
+		t.Fatalf("failed assertion = %v", err)
+	}
+	if record, err := backend.client.Get(t.Context(), "watch/failed-target"); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeNotFound}) {
+		t.Fatalf("failed assertion materialized %+v, %v", record, err)
+	}
+	barrier, err := backend.client.Put(t.Context(), "watch/end", []byte("delimiter"), nil, gapdb.AckDurable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireWatchMutationSequenceThroughBarrier(t, live, result.Revision, barrier.Revision)
 	live.Close()
 	if err := backend.Restart(t.Context()); err != nil {
 		t.Fatal(err)
@@ -166,20 +181,56 @@ func TestAssertionWatchesContainOnlyLiveAndRecoveredMutationEvents(t *testing.T)
 		t.Fatal(err)
 	}
 	defer replayed.Close()
-	requireWatchMutationPair(t, replayed, result.Revision)
+	requireWatchMutationSequenceThroughBarrier(t, replayed, result.Revision, barrier.Revision)
 }
 
-func requireWatchMutationPair(t *testing.T, watch *gapdb.Watch, revision gapdb.Revision) {
+func requireWatchMutationSequenceThroughBarrier(t *testing.T, watch *gapdb.Watch, revision, barrierRevision gapdb.Revision) {
 	t.Helper()
-	for order, key := range []string{"watch/a", "watch/b"} {
+	want := []gapdb.ChangeEvent{
+		{Key: "watch/a", Revision: revision, Order: 0},
+		{Key: "watch/b", Revision: revision, Order: 1},
+		{Key: "watch/end", Revision: barrierRevision, Order: 0},
+	}
+	got := make([]gapdb.ChangeEvent, 0, len(want))
+	for range want {
 		select {
 		case event := <-watch.Events:
-			if event.Key != key || event.Revision != revision || event.Order != uint32(order) {
-				t.Fatalf("watch event %d = %+v", order, event)
-			}
+			got = append(got, event)
 		case <-time.After(3 * time.Second):
-			t.Fatalf("watch event %d timed out", order)
+			t.Fatalf("watch event %d timed out", len(got))
 		}
+	}
+	if err := validateWatchMutationSequenceThroughBarrier(got, revision, barrierRevision); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func validateWatchMutationSequenceThroughBarrier(events []gapdb.ChangeEvent, revision, barrierRevision gapdb.Revision) error {
+	want := []struct {
+		key      string
+		revision gapdb.Revision
+		order    uint32
+	}{{"watch/a", revision, 0}, {"watch/b", revision, 1}, {"watch/end", barrierRevision, 0}}
+	if len(events) != len(want) {
+		return fmt.Errorf("watch event count=%d want=%d", len(events), len(want))
+	}
+	for index, expected := range want {
+		if events[index].Key != expected.key || events[index].Revision != expected.revision || events[index].Order != expected.order {
+			return fmt.Errorf("watch event %d = %+v, want key=%s revision=%d order=%d", index, events[index], expected.key, expected.revision, expected.order)
+		}
+	}
+	return nil
+}
+
+func TestWatchOracleKillsTrailingAssertionEvent(t *testing.T) {
+	events := []gapdb.ChangeEvent{
+		{Key: "watch/a", Revision: 2, Order: 0},
+		{Key: "watch/b", Revision: 2, Order: 1},
+		{Key: "watch/assertion", Revision: 2, Order: 2},
+		{Key: "watch/end", Revision: 3, Order: 0},
+	}
+	if err := validateWatchMutationSequenceThroughBarrier(events, 2, 3); err == nil {
+		t.Fatal("trailing assertion-event mutant survived live/replay oracle")
 	}
 }
 
