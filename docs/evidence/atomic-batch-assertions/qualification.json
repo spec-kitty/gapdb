@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "candidate": {
+    "commit": "a5f79adb7cd49c4328d132179b8828a5806e68fa",
+    "tree": "e0f674eb2c947129bf141221059b432553494947",
+    "remote_ref": "refs/heads/qualification/atomic-batch-assertions-01M1P4VH",
+    "remote_verified": true
+  },
+  "frozen_adoption": {
+    "contract_version": "gapdb-phase1/v1",
+    "scenario_count": 14,
+    "scenarios_passed": 14,
+    "sqlite_decision": "production_pending_external_comparison_and_signed_human_approval"
+  },
+  "contention": {
+    "trials": 1000,
+    "revision_trials": 500,
+    "absence_trials": 500,
+    "stale_successes": 0,
+    "mutant_killed": true,
+    "race_enabled": true,
+    "retry_count": 0
+  },
+  "crash": {
+    "predicate_sigkill_schedules": 4,
+    "durable_sigkill_schedules": 10,
+    "normal_restart_recovery": true,
+    "raw_response_loss_recovered": true,
+    "failed_predicate_zero_effect": true,
+    "watch_live_mutation_only": true,
+    "watch_replay_mutation_only": true
+  },
+  "bounds": {
+    "combined_operations_l_minus_1_l_l_plus_1": true,
+    "combined_public_bytes_l_minus_1_l_l_plus_1": true,
+    "canonical_json_bytes_l_minus_1_l_l_plus_1": true
+  },
+  "performance": {
+    "calculation": "nearest_rank_p95_per_window",
+    "memory_allowance_rule": "max(control_p95*0.15,100us)",
+    "durable_limit_us": 4000,
+    "windows": [
+      {"memory_control_us": 244.318, "memory_asserted_us": 273.568, "memory_overhead_us": 29.250, "memory_allowance_us": 100.000, "durable_control_us": 625.966, "durable_asserted_us": 660.395},
+      {"memory_control_us": 292.098, "memory_asserted_us": 360.158, "memory_overhead_us": 68.060, "memory_allowance_us": 100.000, "durable_control_us": 601.836, "durable_asserted_us": 601.626},
+      {"memory_control_us": 297.608, "memory_asserted_us": 338.708, "memory_overhead_us": 41.100, "memory_allowance_us": 100.000, "durable_control_us": 656.736, "durable_asserted_us": 633.586}
+    ]
+  },
+  "external_consumption": {
+    "module": "github.com/spec-kitty/gapdb",
+    "requested_commit": "a5f79adb7cd49c4328d132179b8828a5806e68fa",
+    "resolved_version": "v0.0.0-20260904135054-a5f79adb7cd4",
+    "module_sum": "h1:xRnnGpjrSq+nf562y1j7WN/i5YqZXoh8s+LoYyhpp/o=",
+    "go_mod_sum": "h1:8xNZ3k+SQIqcxLkS8bjbooOAv9xzZcbg5arjKaV6fcQ=",
+    "gowork": "off",
+    "goproxy": "direct",
+    "fresh_module_cache": true,
+    "fresh_build_cache": true,
+    "fresh_binary_directory": true,
+    "replace": false,
+    "installed_daemon": true,
+    "passing_batch": true,
+    "stale_batch_refused": true,
+    "retry_count": 0
+  },
+  "environment": {
+    "go_version": "go1.26.7",
+    "os": "linux",
+    "arch": "amd64",
+    "kernel": "7.0.0-30-generic",
+    "transport": "unix_socket_0600",
+    "filesystem": "local_os_filesystem"
+  },
+  "gates": [
+    "go_test_all",
+    "go_test_race_all",
+    "go_vet_all",
+    "staticcheck_all",
+    "govulncheck_all",
+    "go_mod_verify",
+    "gofmt_clean",
+    "git_diff_check",
+    "build_gapdbd",
+    "build_gapctl",
+    "performance_acceptance"
+  ]
+}

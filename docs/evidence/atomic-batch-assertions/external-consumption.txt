@@ -1,0 +1,25 @@
+Candidate commit: a5f79adb7cd49c4328d132179b8828a5806e68fa
+Candidate tree: e0f674eb2c947129bf141221059b432553494947
+Remote ref: refs/heads/qualification/atomic-batch-assertions-01M1P4VH
+ls-remote: a5f79adb7cd49c4328d132179b8828a5806e68fa
+
+Environment: fresh GOMODCACHE, GOCACHE, and GOBIN; GOWORK=off; GOPROXY=direct.
+The temporary module had no replace directive.
+
+go list -m -json github.com/spec-kitty/gapdb:
+Path: github.com/spec-kitty/gapdb
+Version: v0.0.0-20260904135054-a5f79adb7cd4
+Time: 2026-09-04T13:50:54Z
+Sum: h1:xRnnGpjrSq+nf562y1j7WN/i5YqZXoh8s+LoYyhpp/o=
+GoModSum: h1:8xNZ3k+SQIqcxLkS8bjbooOAv9xzZcbg5arjKaV6fcQ=
+Replace: absent
+
+Installed exact-revision gapdbd readiness:
+{"schema_version":1,"ready":true,"socket_path":".../database/gapdb.sock"}
+
+External program result:
+external assertion qualification passed revision=2
+
+The program committed an assertion-bearing durable batch, changed the authority,
+then proved the stale assertion returned CONDITION_FAILED and created no record.
+Network retry count: 0.

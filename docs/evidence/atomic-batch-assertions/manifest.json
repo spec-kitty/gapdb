@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "algorithm": "ed25519",
+  "signed_file": "qualification.json",
+  "public_key_pkix_base64": "MCowBQYDK2VwAyEASqq/6wssMl1r9ymiOGkl12VTX8VLrzTn7S4gUfyRzDY=",
+  "signature_base64": "vRw9DT5PDziizPvyZpUzmnXOepAo7PLQblMPhYNdin2hFJVDLYVuTS1AEzfU/q5w9j7fa2fW3fI24h3yeiuQCg==",
+  "files": {
+    "qualification.json": "de6f6c3b225cdc2e2792e62bae99f1ff45b82262b51fb910653b1f9950c08ea3",
+    "performance.txt": "95f0c8ce925010ae1e559de8b1d2a43b7cd07979c7fcd04b1cf8964cbc0868bc",
+    "external-consumption.txt": "a1fbb254db739f361fc6687e2f1b3c4aba483b32eb54d474ae95d5c8b5c26c95",
+    "gates.txt": "750341dbfddcc37d1d3c529ddafae3be46efdd022bd0a2601f18847a4a568457"
+  }
+}

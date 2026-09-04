@@ -1,0 +1,9 @@
+go version go1.26.7 linux/amd64
+Linux 7.0.0-30-generic x86_64 GNU/Linux
+
+$ GAPDB_ASSERTION_ACCEPTANCE=1 go test ./tests/performance -run TestAssertionPerformancePairedSameHostWindows -count=1 -v
+=== RUN   TestAssertionPerformancePairedSameHostWindows
+ASSERTION_PERFORMANCE_WINDOWS=[{Window:0 MemoryControl:244.318us MemoryAsserted:273.568us MemoryOverhead:29.25us MemoryAllowance:100us DurableControl:625.966us DurableAsserted:660.395us} {Window:1 MemoryControl:292.098us MemoryAsserted:360.158us MemoryOverhead:68.06us MemoryAllowance:100us DurableControl:601.836us DurableAsserted:601.626us} {Window:2 MemoryControl:297.608us MemoryAsserted:338.708us MemoryOverhead:41.1us MemoryAllowance:100us DurableControl:656.736us DurableAsserted:633.586us}]
+--- PASS: TestAssertionPerformancePairedSameHostWindows (0.84s)
+PASS
+ok github.com/spec-kitty/gapdb/tests/performance 0.840s
