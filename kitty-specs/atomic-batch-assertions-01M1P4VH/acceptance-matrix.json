@@ -88,10 +88,10 @@
       "criterion_id": "FR-009",
       "description": "Verify FR-009 is satisfied",
       "proof_type": "automated_test",
-      "evidence": null,
-      "pass_fail": "pending",
-      "verified_by": null,
-      "verified_at": null,
+      "evidence": "WP02 approved commit 08ce2f9e6b6c9695865b885a2757d8fd60a0a272 and WP03 sealed evidence ff1f4f070d47ad8b7919a00d477957a95392f89f",
+      "pass_fail": "pass",
+      "verified_by": "codex",
+      "verified_at": "2026-09-04T15:05:50.337476+00:00",
       "notes": "TODO: replace with a real acceptance criterion"
     },
     {
