@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spec-kitty/gapdb/gapdb"
 	"github.com/spec-kitty/gapdb/internal/faultfs"
@@ -44,6 +45,15 @@ type commandResult struct {
 type commitProgress struct {
 	appliedPossible bool
 }
+
+// These engine-local fault points exercise predicate boundaries without
+// changing the persistence fault vocabulary. They are exported from this
+// internal package so the Unix transport qualification can drive the same
+// production writer path through server.Config.FS.
+const (
+	FaultPointAssertionEvaluation         faultfs.Point = "engine.assertion_evaluation"
+	FaultPointMutationConditionEvaluation faultfs.Point = "engine.mutation_condition_evaluation"
+)
 
 func (state *DatabaseState) runWriter() {
 	defer close(state.done)
@@ -114,16 +124,47 @@ func (state *DatabaseState) execute(batch gapdb.Batch, single singleOperation, p
 		return CommitResult{}, err
 	}
 
-	state.mu.RLock()
-	for index, mutation := range batch.Mutations {
-		record, exists := state.records[mutation.Key]
-		live := exists && !recordExpired(record, now)
-		if err := conditionError(mutation, record, live, state.current, index, single); err != nil {
-			state.mu.RUnlock()
-			return CommitResult{}, err
+	// The writer owns the definitive predicate phase. Assertions and mutation
+	// conditions share this one lock and the single effective time captured
+	// above, so no queued writer can move authority between the two groups.
+	predicateErr := func() error {
+		state.mu.RLock()
+		defer state.mu.RUnlock()
+		if len(batch.Assertions) != 0 {
+			if err := faultfs.Checkpoint(state.faults, FaultPointAssertionEvaluation, faultfs.Before); err != nil {
+				return internalFailure("engine-assertion-evaluation", false, err)
+			}
 		}
+		for index, assertion := range batch.Assertions {
+			record, exists := state.records[assertion.Key]
+			live := exists && !recordExpired(record, now)
+			if err := assertionConditionError(assertion, record, live, index); err != nil {
+				return err
+			}
+		}
+		if len(batch.Assertions) != 0 {
+			if err := faultfs.Checkpoint(state.faults, FaultPointAssertionEvaluation, faultfs.After); err != nil {
+				return internalFailure("engine-assertion-evaluation", false, err)
+			}
+		}
+		if err := faultfs.Checkpoint(state.faults, FaultPointMutationConditionEvaluation, faultfs.Before); err != nil {
+			return internalFailure("engine-mutation-condition-evaluation", false, err)
+		}
+		for index, mutation := range batch.Mutations {
+			record, exists := state.records[mutation.Key]
+			live := exists && !recordExpired(record, now)
+			if err := conditionError(mutation, record, live, state.current, index, single); err != nil {
+				return err
+			}
+		}
+		if err := faultfs.Checkpoint(state.faults, FaultPointMutationConditionEvaluation, faultfs.After); err != nil {
+			return internalFailure("engine-mutation-condition-evaluation", false, err)
+		}
+		return nil
+	}()
+	if predicateErr != nil {
+		return CommitResult{}, predicateErr
 	}
-	state.mu.RUnlock()
 
 	// Reviewer invariant: this is the engine's sole revision-allocation call site.
 	revision, err := state.allocator.Next()
@@ -187,7 +228,7 @@ func (state *DatabaseState) execute(batch gapdb.Batch, single singleOperation, p
 		return CommitResult{}, persistenceFailure("map_apply", current, durable, true, err)
 	}
 	state.afterCommit(events)
-	return CommitResult{MutationResult: gapdb.MutationResult{Revision: revision, Ack: batch.Ack, DurableThroughRevision: durableThrough, MutationCount: len(batch.Mutations)}, Events: cloneEvents(events)}, nil
+	return CommitResult{MutationResult: gapdb.MutationResult{Revision: revision, Ack: batch.Ack, DurableThroughRevision: durableThrough, MutationCount: len(batch.Mutations), AssertionCount: len(batch.Assertions)}, Events: cloneEvents(events)}, nil
 }
 
 func appendWithProgress(log CommitLog, frame persist.CommitFrame, progress *commitProgress) (err error) {
@@ -292,6 +333,54 @@ func batchConditionError(mutation gapdb.Mutation, record gapdb.Record, live bool
 		err.ActualState = "absent"
 	}
 	return err
+}
+
+func assertionConditionError(assertion gapdb.Assertion, record gapdb.Record, live bool, index int) error {
+	switch assertion.Condition.Kind {
+	case gapdb.ConditionAbsent:
+		if !live {
+			return nil
+		}
+	case gapdb.ConditionRevision:
+		if live && record.Revision == assertion.Condition.ExpectedRevision {
+			return nil
+		}
+	default:
+		return invalidField("condition.kind", "assertions require absent or revision")
+	}
+	assertionIndex := index
+	err := &gapdb.Error{
+		Code:           gapdb.CodeConditionFailed,
+		Message:        "Atomic batch assertion failed.",
+		Retry:          gapdb.RetryAfterReconcile,
+		Key:            boundedPredicateKey(assertion.Key),
+		AssertionIndex: &assertionIndex,
+		Condition:      string(assertion.Condition.Kind),
+		SafeActions:    []gapdb.SafeAction{gapdb.ActionGet, gapdb.ActionRebuildBatch, gapdb.ActionAbort},
+	}
+	if assertion.Condition.Kind == gapdb.ConditionRevision {
+		expected := assertion.Condition.ExpectedRevision
+		err.ExpectedRevision = &expected
+	}
+	if live {
+		actual := record.Revision
+		err.ActualRevision = &actual
+	} else {
+		err.ActualState = "absent"
+	}
+	return err
+}
+
+func boundedPredicateKey(key string) string {
+	const maximum = 256
+	if len(key) <= maximum {
+		return key
+	}
+	end := maximum
+	for end > 0 && !utf8.ValidString(key[:end]) {
+		end--
+	}
+	return key[:end]
 }
 
 func effectFor(mutation gapdb.Mutation, operation singleOperation) persist.Effect {

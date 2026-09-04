@@ -172,7 +172,14 @@ func (c *Client) AtomicBatch(ctx context.Context, batch Batch) (MutationResult, 
 	if err := copy.Validate(c.limits); err != nil {
 		return MutationResult{}, err
 	}
-	return c.mutate(ctx, "atomic_batch", copy)
+	result, err := c.mutate(ctx, "atomic_batch", copy)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if result.MutationCount != len(copy.Mutations) || result.AssertionCount != len(copy.Assertions) {
+		return MutationResult{}, c.invalidResult("atomic_batch", errors.New("batch evidence counts do not match the request"))
+	}
+	return result, nil
 }
 func (c *Client) mutate(ctx context.Context, op string, args any) (MutationResult, error) {
 	if acknowledgement, ok := acknowledgementOf(args); !ok || !acknowledgement.Valid() {
