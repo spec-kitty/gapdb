@@ -1,20 +1,23 @@
 {
   "mission_slug": "atomic-batch-assertions-01M1P4VH",
-  "snapshot_id": "b6c1c825-b855-4b5a-b1e3-8072a1707873",
-  "total_artifacts": 25,
+  "snapshot_id": "4c2e32d8-6f23-475b-984b-7f14d3081072",
+  "total_artifacts": 32,
   "required_artifacts": 3,
   "required_present": 3,
   "required_missing": 0,
-  "optional_artifacts": 22,
-  "optional_present": 22,
+  "optional_artifacts": 29,
+  "optional_present": 29,
   "completeness_status": "complete",
-  "parity_hash_sha256": "sha256:8f9396d5cd190b87d9eadf8f05ddf2c8048fef29c97aca0ade65baa3400a90e9",
+  "parity_hash_sha256": "sha256:fe6021f995f0af370251035bf6c8b7d7b06a19ece471ae4c5996fb2620484998",
   "parity_hash_components": [
+    "016d462476d475ff256ecfcfbbb66e87b4ab487aa007aad8685865f405d44113",
     "071f3f21c6dca57379f8d70036d88d4d1fde2e2a06c1693f63bdcfe307326e41",
     "07292e425824d33dd996fec171974ee4879070cf34273642edee694f6064e651",
     "173e48e732f5e0144c25e038323364188d55b8c57654bda19fa8d8b053e78b9f",
     "1cb325ac29b39e952a8bb04f4b924a60607a394658fe1ecc21d6f7da012377ff",
+    "20d21352e43524317d252ea6e129bad34c672ca357f9afc9c15725fdc586eef2",
     "23a4821c8d9af422e18f8b7cadbc53668f3fd50c113f19edfa3651f17f0ba739",
+    "45b4408b8c8d1e6261fd63762aeb23259df60ee8b6a7ef53e57dd0baf8113332",
     "4c1af354e1fa76614b63135fc5819621bc57760e397a67edd4d6d26c851f9fcf",
     "60ab7f37eaffa31c34baedd9d6c33a2fb801b13cc2265b03684b7aa176b7ea8b",
     "62f6657d6a2aaf6555d6b0ad3ea3af84d4be9db27324492c784a5a92ca62ac1d",
@@ -28,7 +31,11 @@
     "a3417457a63a0ca15fbf585f8cf9b4407fd594bd663212e03fcca791d050a1b2",
     "af533030e993d78f9e3160b2446d2895c9024c97b3f301d818e5f9855b6aaf57",
     "bd31e076c0a0b19cbfa105820e3a5c5b41f03230d3d925fc71a489f416efbf04",
+    "c3f32f595bd85a22aacb905c3b1da655b4572c76ae781c37eab140485a9ca7a2",
+    "c70a328be86e4147dc97587a620424ddb6cf0faba6770a6340e502f06dab2a80",
     "c7d090b70cd0cd4195516b52f4cca130d667b7c8983b5926eb9636c39c3e9664",
+    "dd340b65d5ea0506f372d3cf816128af48f5e7052c136e614c38c28bb7cef004",
+    "ddfb214b936798083eb79d6b389adc8f84d4bf48241eb0801cc10b9815e4ba3a",
     "dedda357669736e843c74e9e3b36c797298d451d94b140712c9d85708b4a75aa",
     "eebd2c7a713a27d2609a575c0e09a7b4c71cf3a276744bd6cac8ab3323f1f40d",
     "f063e39245c79583450efea4384b676b2a8c5a01fdbe31616d7ddbd0edc13283",
@@ -48,7 +55,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.496838+00:00",
+      "indexed_at": "2026-09-04T14:53:57.226416+00:00",
       "provenance": null
     },
     {
@@ -62,7 +69,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.499636+00:00",
+      "indexed_at": "2026-09-04T14:53:57.229159+00:00",
       "provenance": null
     },
     {
@@ -76,7 +83,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.529407+00:00",
+      "indexed_at": "2026-09-04T14:53:57.260846+00:00",
       "provenance": null
     },
     {
@@ -90,7 +97,21 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.543147+00:00",
+      "indexed_at": "2026-09-04T14:53:57.274292+00:00",
+      "provenance": null
+    },
+    {
+      "artifact_key": "artifact.baseline-tests",
+      "artifact_class": "evidence",
+      "relative_path": "tasks/WP03-adversarial-qualification-and-release/baseline-tests.json",
+      "content_hash_sha256": "20d21352e43524317d252ea6e129bad34c672ca357f9afc9c15725fdc586eef2",
+      "size_bytes": 335,
+      "wp_id": null,
+      "step_id": null,
+      "required_status": "optional",
+      "is_present": true,
+      "error_reason": null,
+      "indexed_at": "2026-09-04T14:53:57.290650+00:00",
       "provenance": null
     },
     {
@@ -104,7 +125,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.479934+00:00",
+      "indexed_at": "2026-09-04T14:53:57.209878+00:00",
       "provenance": null
     },
     {
@@ -118,7 +139,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.483023+00:00",
+      "indexed_at": "2026-09-04T14:53:57.212640+00:00",
       "provenance": null
     },
     {
@@ -132,7 +153,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.508177+00:00",
+      "indexed_at": "2026-09-04T14:53:57.237937+00:00",
       "provenance": null
     },
     {
@@ -146,7 +167,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.523639+00:00",
+      "indexed_at": "2026-09-04T14:53:57.252562+00:00",
       "provenance": null
     },
     {
@@ -160,7 +181,35 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.532191+00:00",
+      "indexed_at": "2026-09-04T14:53:57.263516+00:00",
+      "provenance": null
+    },
+    {
+      "artifact_key": "artifact.review-cycle-1",
+      "artifact_class": "output",
+      "relative_path": "tasks/WP03-adversarial-qualification-and-release/review-cycle-1.md",
+      "content_hash_sha256": "dd340b65d5ea0506f372d3cf816128af48f5e7052c136e614c38c28bb7cef004",
+      "size_bytes": 7535,
+      "wp_id": null,
+      "step_id": null,
+      "required_status": "optional",
+      "is_present": true,
+      "error_reason": null,
+      "indexed_at": "2026-09-04T14:53:57.279759+00:00",
+      "provenance": null
+    },
+    {
+      "artifact_key": "artifact.review-cycle-2",
+      "artifact_class": "output",
+      "relative_path": "tasks/WP02-serialized-engine-semantics/review-cycle-2.md",
+      "content_hash_sha256": "45b4408b8c8d1e6261fd63762aeb23259df60ee8b6a7ef53e57dd0baf8113332",
+      "size_bytes": 739,
+      "wp_id": null,
+      "step_id": null,
+      "required_status": "optional",
+      "is_present": true,
+      "error_reason": null,
+      "indexed_at": "2026-09-04T14:53:57.255317+00:00",
       "provenance": null
     },
     {
@@ -174,7 +223,21 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.534925+00:00",
+      "indexed_at": "2026-09-04T14:53:57.266140+00:00",
+      "provenance": null
+    },
+    {
+      "artifact_key": "artifact.review-cycle-2",
+      "artifact_class": "output",
+      "relative_path": "tasks/WP03-adversarial-qualification-and-release/review-cycle-2.md",
+      "content_hash_sha256": "016d462476d475ff256ecfcfbbb66e87b4ab487aa007aad8685865f405d44113",
+      "size_bytes": 1089,
+      "wp_id": null,
+      "step_id": null,
+      "required_status": "optional",
+      "is_present": true,
+      "error_reason": null,
+      "indexed_at": "2026-09-04T14:53:57.282377+00:00",
       "provenance": null
     },
     {
@@ -188,7 +251,21 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.537716+00:00",
+      "indexed_at": "2026-09-04T14:53:57.268780+00:00",
+      "provenance": null
+    },
+    {
+      "artifact_key": "artifact.review-cycle-3",
+      "artifact_class": "output",
+      "relative_path": "tasks/WP03-adversarial-qualification-and-release/review-cycle-3.md",
+      "content_hash_sha256": "c70a328be86e4147dc97587a620424ddb6cf0faba6770a6340e502f06dab2a80",
+      "size_bytes": 2051,
+      "wp_id": null,
+      "step_id": null,
+      "required_status": "optional",
+      "is_present": true,
+      "error_reason": null,
+      "indexed_at": "2026-09-04T14:53:57.285329+00:00",
       "provenance": null
     },
     {
@@ -202,7 +279,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.526477+00:00",
+      "indexed_at": "2026-09-04T14:53:57.258139+00:00",
       "provenance": null
     },
     {
@@ -216,7 +293,21 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.540366+00:00",
+      "indexed_at": "2026-09-04T14:53:57.271543+00:00",
+      "provenance": null
+    },
+    {
+      "artifact_key": "artifact.review-feedback-1",
+      "artifact_class": "output",
+      "relative_path": "tasks/WP03-adversarial-qualification-and-release/review-feedback-1.md",
+      "content_hash_sha256": "c3f32f595bd85a22aacb905c3b1da655b4572c76ae781c37eab140485a9ca7a2",
+      "size_bytes": 7353,
+      "wp_id": null,
+      "step_id": null,
+      "required_status": "optional",
+      "is_present": true,
+      "error_reason": null,
+      "indexed_at": "2026-09-04T14:53:57.288002+00:00",
       "provenance": null
     },
     {
@@ -230,7 +321,21 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.546014+00:00",
+      "indexed_at": "2026-09-04T14:53:57.277032+00:00",
+      "provenance": null
+    },
+    {
+      "artifact_key": "artifact.review-feedback-3",
+      "artifact_class": "output",
+      "relative_path": "tasks/WP03-adversarial-qualification-and-release/review-feedback-3.md",
+      "content_hash_sha256": "ddfb214b936798083eb79d6b389adc8f84d4bf48241eb0801cc10b9815e4ba3a",
+      "size_bytes": 1869,
+      "wp_id": null,
+      "step_id": null,
+      "required_status": "optional",
+      "is_present": true,
+      "error_reason": null,
+      "indexed_at": "2026-09-04T14:53:57.293266+00:00",
       "provenance": null
     },
     {
@@ -244,7 +349,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.471276+00:00",
+      "indexed_at": "2026-09-04T14:53:57.201493+00:00",
       "provenance": null
     },
     {
@@ -258,7 +363,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.476992+00:00",
+      "indexed_at": "2026-09-04T14:53:57.207038+00:00",
       "provenance": null
     },
     {
@@ -272,7 +377,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.520892+00:00",
+      "indexed_at": "2026-09-04T14:53:57.249828+00:00",
       "provenance": null
     },
     {
@@ -286,7 +391,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.514968+00:00",
+      "indexed_at": "2026-09-04T14:53:57.243939+00:00",
       "provenance": null
     },
     {
@@ -294,13 +399,13 @@
       "artifact_class": "output",
       "relative_path": "tasks/WP03-adversarial-qualification-and-release.md",
       "content_hash_sha256": "f7a4a9b6365bcfd112b9c46c2da1a5af2b65b1ccaa4c83bb6fc72ceedba85b68",
-      "size_bytes": 3627,
+      "size_bytes": 3788,
       "wp_id": null,
       "step_id": null,
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.505383+00:00",
+      "indexed_at": "2026-09-04T14:53:57.235180+00:00",
       "provenance": null
     },
     {
@@ -314,7 +419,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.491226+00:00",
+      "indexed_at": "2026-09-04T14:53:57.220860+00:00",
       "provenance": null
     },
     {
@@ -328,7 +433,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.474164+00:00",
+      "indexed_at": "2026-09-04T14:53:57.204283+00:00",
       "provenance": null
     },
     {
@@ -342,7 +447,7 @@
       "required_status": "optional",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.488505+00:00",
+      "indexed_at": "2026-09-04T14:53:57.218173+00:00",
       "provenance": null
     },
     {
@@ -356,7 +461,7 @@
       "required_status": "required",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.485822+00:00",
+      "indexed_at": "2026-09-04T14:53:57.215421+00:00",
       "provenance": null
     },
     {
@@ -370,7 +475,7 @@
       "required_status": "required",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.467924+00:00",
+      "indexed_at": "2026-09-04T14:53:57.198413+00:00",
       "provenance": null
     },
     {
@@ -384,9 +489,9 @@
       "required_status": "required",
       "is_present": true,
       "error_reason": null,
-      "indexed_at": "2026-09-04T13:32:31.494086+00:00",
+      "indexed_at": "2026-09-04T14:53:57.223725+00:00",
       "provenance": null
     }
   ],
-  "computed_at": "2026-09-04 13:32:31.635215+00:00"
+  "computed_at": "2026-09-04 14:53:57.396157+00:00"
 }

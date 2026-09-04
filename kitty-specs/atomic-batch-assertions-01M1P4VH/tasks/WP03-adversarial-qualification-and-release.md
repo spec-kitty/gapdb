@@ -12,6 +12,9 @@ requirement_refs:
 planning_base_branch: feat/atomic-batch-assertions
 merge_target_branch: feat/atomic-batch-assertions
 branch_strategy: Planning artifacts for this mission were generated on feat/atomic-batch-assertions. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into feat/atomic-batch-assertions unless the human explicitly redirects the landing branch.
+base_branch: kitty/mission-atomic-batch-assertions-01M1P4VH
+base_commit: a4cc9fe0b10e49f8c241357e2b1800522244360e
+created_at: '2026-09-04T13:38:09.303860+00:00'
 subtasks:
 - T009
 - T010
