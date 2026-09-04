@@ -93,6 +93,9 @@
       "last_event_id": "01M1PBB57TR6PB84CS03XJJF91",
       "last_transition_at": "2026-09-04T13:57:14.618167+00:00",
       "model": "__resolved_model_absent__",
+      "notes": [
+        "Qualification candidate a5f79adb and sealed evidence 4808311d are complete; full and race gates pass. Force is limited to inherited committed lifecycle artifacts from approved dependencies."
+      ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 3753728,
