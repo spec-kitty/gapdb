@@ -408,6 +408,9 @@ func DecodeResponse(payload []byte, maximum int) (Response, error) {
 		if err := validateStructuredError(&decoded, envelope.Error); err != nil {
 			return Response{}, err
 		}
+		if decoded.AssertionIndex != nil && envelope.Operation != OperationAtomicBatch {
+			return Response{}, invalidProtocol("error.assertion_index", "is valid only for atomic_batch", nil)
+		}
 		if decoded.AssertionIndex != nil && len(payload) >= maxAssertionDiagnosticBytes {
 			return Response{}, invalidProtocol("error", "assertion diagnostic exceeds its safe bound", nil)
 		}

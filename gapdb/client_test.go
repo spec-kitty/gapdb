@@ -368,6 +368,45 @@ func TestClientRejectsMalformedAssertionConditionEvidence(t *testing.T) {
 	}
 }
 
+func TestClientRejectsAssertionFailureEvidenceOutsideAtomicBatch(t *testing.T) {
+	type probe struct {
+		operation protocol.Operation
+		invoke    func(*gapdb.Client) error
+	}
+	probes := []probe{
+		{protocol.OperationPut, func(client *gapdb.Client) error {
+			_, err := client.Put(t.Context(), "record", []byte{1}, nil, gapdb.AckMemory)
+			return err
+		}},
+		{protocol.OperationCompareAndSwap, func(client *gapdb.Client) error {
+			_, err := client.CompareAndSwap(t.Context(), "record", 1, []byte{1}, nil, gapdb.AckMemory)
+			return err
+		}},
+		{protocol.OperationDeleteIfRevision, func(client *gapdb.Client) error {
+			_, err := client.DeleteIfRevision(t.Context(), "record", 1, gapdb.AckMemory)
+			return err
+		}},
+	}
+	assertionError := `{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","assertion_index":0,"condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}`
+	for _, tt := range probes {
+		t.Run(string(tt.operation), func(t *testing.T) {
+			client := dialUnaryErrorFixtureForOperation(t, tt.operation, assertionError)
+			err := tt.invoke(client)
+			if err == nil || errors.Is(err, &gapdb.Error{Code: gapdb.CodeConditionFailed}) {
+				t.Fatalf("client admitted %s assertion evidence: %#v", tt.operation, err)
+			}
+		})
+	}
+
+	mutationError := `{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"record","mutation_index":0,"condition":"revision","actual_state":"missing","safe_actions":["get","rebuild_batch","abort"]}`
+	client := dialUnaryErrorFixtureForOperation(t, protocol.OperationPut, mutationError)
+	_, err := client.Put(t.Context(), "record", []byte{1}, nil, gapdb.AckMemory)
+	var failure *gapdb.Error
+	if !errors.As(err, &failure) || failure.MutationIndex == nil || failure.AssertionIndex != nil {
+		t.Fatalf("ordinary mutation condition evidence = %#v, %v", failure, err)
+	}
+}
+
 func TestClientAcceptsStrictlyBoundedMaximumKeyAssertionFailure(t *testing.T) {
 	key := strings.Repeat("k", gapdb.DefaultOptions().Limits.MaxKeyBytes)
 	index := 0
@@ -432,6 +471,11 @@ func dialUnaryFixture(t *testing.T, operation protocol.Operation, result string)
 
 func dialUnaryErrorFixture(t *testing.T, remoteError string) *gapdb.Client {
 	t.Helper()
+	return dialUnaryErrorFixtureForOperation(t, protocol.OperationAtomicBatch, remoteError)
+}
+
+func dialUnaryErrorFixtureForOperation(t *testing.T, operation protocol.Operation, remoteError string) *gapdb.Client {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "unary-error.sock")
 	listener, err := net.Listen("unix", path)
 	if err != nil {
@@ -450,7 +494,7 @@ func dialUnaryErrorFixture(t *testing.T, remoteError string) *gapdb.Client {
 		defer conn.Close()
 		payload, _ := protocol.ReadFrame(conn, gapdb.DefaultMaxFrameBytes)
 		request, _ := protocol.DecodeRequest(payload, gapdb.DefaultOptions().Limits)
-		envelope := `{"schema_version":1,"ok":false,"request_id":` + quote(request.RequestID) + `,"database_id":"00112233445566778899aabbccddeeff","operation":"atomic_batch","error":` + remoteError + `}`
+		envelope := `{"schema_version":1,"ok":false,"request_id":` + quote(request.RequestID) + `,"database_id":"00112233445566778899aabbccddeeff","operation":` + quote(string(operation)) + `,"error":` + remoteError + `}`
 		_ = protocol.WriteFrame(conn, []byte(envelope), gapdb.DefaultMaxFrameBytes)
 	}()
 	client, err := gapdb.Dial(path, gapdb.ClientOptions{Timeout: time.Second})

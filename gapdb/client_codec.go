@@ -57,6 +57,9 @@ func validateClientResponse(payload []byte) error {
 		if err := validateRemoteErrorRaw(&remote, envelope.Error); err != nil {
 			return err
 		}
+		if remote.AssertionIndex != nil && envelope.Operation != "atomic_batch" {
+			return errors.New("assertion_index is invalid outside atomic_batch")
+		}
 		if remote.AssertionIndex != nil && len(payload) >= maxAssertionDiagnosticBytes {
 			return errors.New("assertion diagnostic exceeds its safe bound")
 		}

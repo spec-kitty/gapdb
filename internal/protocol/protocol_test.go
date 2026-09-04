@@ -489,6 +489,35 @@ func TestAssertionResultAndFailureEvidenceWireContract(t *testing.T) {
 	}
 }
 
+func TestAssertionFailureEvidenceIsAtomicBatchOnly(t *testing.T) {
+	t.Parallel()
+
+	assertionError := `{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","assertion_index":0,"condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}`
+	for _, operation := range []Operation{OperationPut, OperationCompareAndSwap, OperationDeleteIfRevision} {
+		t.Run(string(operation), func(t *testing.T) {
+			payload := []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"` + string(operation) + `","error":` + assertionError + `}`)
+			if _, err := DecodeResponse(payload, gapdb.DefaultMaxFrameBytes); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeInvalidRequest}) {
+				t.Fatalf("DecodeResponse(%s assertion evidence) = %v", operation, err)
+			}
+
+			index := 0
+			if encoded, err := EncodeResponse(Response{SchemaVersion: 1, DatabaseID: "db", Operation: operation, Error: &gapdb.Error{
+				Code: gapdb.CodeConditionFailed, Message: "failed", Retry: gapdb.RetryAfterReconcile,
+				Key: "guard", AssertionIndex: &index, Condition: string(gapdb.ConditionAbsent), ActualState: "present",
+				SafeActions: []gapdb.SafeAction{gapdb.ActionGet, gapdb.ActionRebuildBatch, gapdb.ActionAbort},
+			}}); err == nil || encoded != nil {
+				t.Fatalf("EncodeResponse(%s assertion evidence) accepted", operation)
+			}
+		})
+	}
+
+	mutation := []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"put","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"record","mutation_index":0,"condition":"revision","actual_state":"missing","safe_actions":["get","rebuild_batch","abort"]}}`)
+	decoded, err := DecodeResponse(mutation, gapdb.DefaultMaxFrameBytes)
+	if err != nil || decoded.Error == nil || decoded.Error.MutationIndex == nil || decoded.Error.AssertionIndex != nil {
+		t.Fatalf("ordinary mutation condition evidence = %#v, %v", decoded.Error, err)
+	}
+}
+
 func TestAssertionFailureEncodingIsStrictlyBoundedAtMaximumKey(t *testing.T) {
 	t.Parallel()
 
