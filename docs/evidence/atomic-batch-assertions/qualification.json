@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "candidate_commit": "1de772be90d01911d431a78fecc35d83ad7724ec",
+  "candidate_tree": "6ed63041587484836010c302e202e4d65bb00a5a",
+  "frozen_adoption": {
+    "contract_version": "gapdb-phase1/v1",
+    "scenario_count": 14,
+    "scenarios_passed": 14,
+    "sqlite_decision": "production_pending_external_comparison_and_signed_human_approval"
+  },
+  "contention": {
+    "trials": 1000,
+    "revision_trials": 500,
+    "absence_trials": 500,
+    "guarded_first": 213,
+    "authority_first": 787,
+    "stale_effects": 0,
+    "mutants_killed": ["M-ASSERTION-OUTSIDE-WRITER", "M-MUTATE-THEN-ERROR", "M-SUCCESS-WITHOUT-PUBLICATION"],
+    "race_enabled": true,
+    "retry_count": 0
+  },
+  "crash": {
+    "predicate_sigkill_schedules": 4,
+    "durable_sigkill_schedules": 10,
+    "normal_restart_recovery": true,
+    "raw_response_loss_recovered": true,
+    "failed_predicate_zero_effect": true,
+    "watch_live_mutation_only": true,
+    "watch_replay_mutation_only": true,
+    "trailing_assertion_event_mutant_killed": true
+  },
+  "bounds": {
+    "public_operations_l_minus_1_l_l_plus_1": true,
+    "public_bytes_l_minus_1_l_l_plus_1": true,
+    "protocol_json_l_minus_1_l_l_plus_1": true,
+    "rejection_zero_effect_before_restart": true,
+    "rejection_zero_effect_after_restart": true,
+    "watch_history_zero_effect": true,
+    "expiry_metadata_zero_effect": true,
+    "after_effect_mutant_killed": true,
+    "off_by_one_mutant_killed": true
+  },
+  "performance": {
+    "raw_artifact": "performance.json",
+    "stability_runs": 11,
+    "stability_passed": 11,
+    "retry_count": 0
+  }
+}

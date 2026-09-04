@@ -3,14 +3,24 @@
   "pending_local_commits": [
     {
       "type": "LocalCommit",
-      "git_hash": "e4e751e511b1e927e5db651a874a60a1dc5a4d23",
+      "git_hash": "df0e29427d6828a946fccef7759300fce7acaccf",
       "mission_id": "gapdb-mvp-01M0Q8K6",
       "build_id": "2c7ead70-7e62-56bd-82a7-e0d21a616286",
       "changed_files": [
-        "kitty-specs/gapdb-mvp-01M0Q8K6/status.events.jsonl",
-        "kitty-specs/gapdb-mvp-01M0Q8K6/status.json"
+        "kitty-specs/gapdb-mvp-01M0Q8K6/spec-kitty-workarounds.md"
       ],
-      "committed_at": "2026-08-24T02:20:24.633095+00:00"
+      "committed_at": "2026-08-24T02:58:06.276255+00:00"
+    },
+    {
+      "type": "LocalCommit",
+      "git_hash": "4c8e1bbd13013ed42931ef6596610870964c8723",
+      "mission_id": "atomic-batch-assertions-01M1P4VH",
+      "build_id": "2c7ead70-7e62-56bd-82a7-e0d21a616286",
+      "project_uuid": "65833a9d-42a5-405d-9939-40daf293fb0a",
+      "changed_files": [
+        "kitty-specs/atomic-batch-assertions-01M1P4VH/acceptance-matrix.json"
+      ],
+      "committed_at": "2026-09-04T15:06:08.492031+00:00"
     }
   ]
 }
