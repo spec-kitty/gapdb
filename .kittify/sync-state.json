@@ -13,22 +13,14 @@
     },
     {
       "type": "LocalCommit",
-      "git_hash": "50761e917906f814980a2bdeff209b49291120c8",
+      "git_hash": "4c8e1bbd13013ed42931ef6596610870964c8723",
       "mission_id": "atomic-batch-assertions-01M1P4VH",
       "build_id": "2c7ead70-7e62-56bd-82a7-e0d21a616286",
       "project_uuid": "65833a9d-42a5-405d-9939-40daf293fb0a",
       "changed_files": [
-        "kitty-specs/atomic-batch-assertions-01M1P4VH/tasks.md",
-        "kitty-specs/atomic-batch-assertions-01M1P4VH/meta.json",
-        "kitty-specs/atomic-batch-assertions-01M1P4VH/.kittify/dossiers/atomic-batch-assertions-01M1P4VH/snapshot-latest.json",
-        "kitty-specs/atomic-batch-assertions-01M1P4VH/tasks/.gitkeep",
-        "kitty-specs/atomic-batch-assertions-01M1P4VH/tasks/README.md",
-        "kitty-specs/atomic-batch-assertions-01M1P4VH/tasks/WP01-public-and-unix-contract.md",
-        "kitty-specs/atomic-batch-assertions-01M1P4VH/tasks/WP02-serialized-engine-semantics.md",
-        "kitty-specs/atomic-batch-assertions-01M1P4VH/tasks/WP03-adversarial-qualification-and-release.md",
-        "kitty-specs/atomic-batch-assertions-01M1P4VH/lanes.json"
+        "kitty-specs/atomic-batch-assertions-01M1P4VH/acceptance-matrix.json"
       ],
-      "committed_at": "2026-09-04T12:14:21.153592+00:00"
+      "committed_at": "2026-09-04T15:06:08.492031+00:00"
     }
   ]
 }
