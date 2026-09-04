@@ -51,45 +51,38 @@ As an existing GapDB client, batches with no assertions retain their current wir
 
 ## 5. Functional requirements
 
-### Public contract
-
-- **FR-001:** The public package MUST define an `Assertion` containing a key and a condition, and `Batch` MUST accept zero or more assertions.
-- **FR-002:** Assertions MUST support exact revision and absence conditions. `ConditionAny` MUST be rejected for assertions because it is vacuous.
-- **FR-003:** A batch MUST still contain at least one mutation. An assertion-only batch MUST be rejected and MUST not allocate a revision.
-- **FR-004:** Assertion keys MUST be unique within the assertion set and MUST NOT overlap mutation keys. Duplicate or overlapping keys MUST fail validation before engine execution.
-- **FR-005:** Existing batch operation and byte limits MUST apply to the combined assertion and mutation request. The accounting rule MUST be documented and tested at exact boundaries.
-- **FR-006:** Public constructors, validation, and returned values MUST defensively copy caller-owned byte slices.
-
-### Atomic semantics
-
-- **FR-007:** The engine MUST evaluate every assertion and every mutation condition while holding the same serialized writer authority and against the same pre-batch logical view.
-- **FR-008:** If any assertion or mutation condition fails, the batch MUST apply zero mutations, allocate no commit revision, append no WAL commit, emit no watch event, and alter no snapshot or expiry state.
-- **FR-009:** A successful assertion MUST itself perform no put, delete, expiry update, WAL entry, snapshot change, watch emission, per-key revision change, or global revision change.
-- **FR-010:** Expired records MUST have the same effective-time treatment for assertions as for ordinary conditions and reads. A single batch evaluation MUST use a coherent effective time.
-- **FR-011:** Assertion evaluation MUST remain correct when the asserted key is changed immediately before the batch, when a stale client retries, and when the response to a successful mutation is lost.
-
-### Results and protocol
-
-- **FR-012:** `MutationResult` MUST report the count of evaluated assertions separately from `MutationCount`. Existing revision, acknowledgement, and durable-through meanings MUST remain unchanged.
-- **FR-013:** The Unix request and response schema MUST represent assertions and assertion counts additively, and the client/server MUST preserve the in-process validation and atomicity contract.
-- **FR-014:** Servers MUST continue to accept valid pre-assertion clients. Clients and servers MUST reject malformed assertion encodings deterministically.
-- **FR-015:** Assertion failures MUST identify the assertion index/key and failed condition without exposing stored values. Diagnostics MUST remain bounded and suitable for logs and protocol responses.
-
-### Recovery and observation
-
-- **FR-016:** Recovery from snapshots and WAL MUST never synthesize assertion mutations or revision changes. A committed assertion-bearing batch MUST recover exactly like its mutation subset.
-- **FR-017:** Watch consumers MUST observe only the committed mutations from an assertion-bearing batch, in the same ordering and envelope used today.
-- **FR-018:** Cancellation and transport failure MUST not weaken the existing acknowledgement/retry contract: callers use acknowledgement evidence to distinguish committed results from unknown outcomes.
+| ID | Title | Requirement | Priority | Status |
+|----|-------|-------------|----------|--------|
+| FR-001 | Public assertion model | The public package MUST define an `Assertion` containing a key and a condition, and `Batch` MUST accept zero or more assertions. | High | Open |
+| FR-002 | Meaningful conditions | Assertions MUST support exact revision and absence conditions; `ConditionAny` MUST be rejected because it is vacuous. | High | Open |
+| FR-003 | Mutation required | A batch MUST still contain at least one mutation; an assertion-only batch MUST be rejected without allocating a revision. | High | Open |
+| FR-004 | Disjoint unique keys | Assertion keys MUST be unique and MUST NOT overlap mutation keys; invalid requests fail before engine execution. | High | Open |
+| FR-005 | Unified limits | Existing batch operation and byte limits MUST apply to the combined assertion and mutation request with tested exact-boundary accounting. | High | Open |
+| FR-006 | Defensive ownership | Public constructors, validation, and returned values MUST defensively copy caller-owned byte slices. | Medium | Open |
+| FR-007 | One pre-batch view | The engine MUST evaluate every assertion and mutation condition under the same serialized writer authority against one pre-batch logical view. | High | Open |
+| FR-008 | Atomic failure | If any predicate fails, the batch MUST apply zero mutations, allocate no revision, append no WAL commit, emit no watch event, and alter no snapshot or expiry state. | High | Open |
+| FR-009 | No-write assertion | A successful assertion MUST itself perform no put, delete, expiry update, WAL entry, snapshot change, watch emission, per-key revision change, or global revision change. | High | Open |
+| FR-010 | Coherent expiry | Expired records MUST receive the same effective-time treatment for assertions as for conditions and reads, using one coherent batch time. | High | Open |
+| FR-011 | Stale and lost-response behavior | Evaluation MUST remain correct after concurrent change, stale retry, and loss of a successful mutation response. | High | Open |
+| FR-012 | Exact result evidence | `MutationResult` MUST report evaluated assertion count separately while preserving existing revision, acknowledgement, durable-through, and mutation-count meanings. | High | Open |
+| FR-013 | Unix parity | Unix request and response schemas MUST represent assertions and assertion counts additively with in-process semantic parity. | High | Open |
+| FR-014 | Compatibility | Servers MUST accept valid pre-assertion clients, while clients and servers reject malformed assertion encodings deterministically. | High | Open |
+| FR-015 | Safe diagnostics | Failures MUST identify assertion index/key and condition without exposing values, using bounded log- and protocol-safe diagnostics. | High | Open |
+| FR-016 | Recovery transparency | Snapshot/WAL recovery MUST never synthesize assertion changes; a committed assertion-bearing batch recovers exactly like its mutation subset. | High | Open |
+| FR-017 | Watch transparency | Watch consumers MUST observe only committed mutations from an assertion-bearing batch in existing ordering and envelopes. | High | Open |
+| FR-018 | Acknowledgement continuity | Cancellation and transport failure MUST preserve existing acknowledgement and retry semantics; assertions do not imply outcome knowledge. | High | Open |
 
 ## 6. Non-functional requirements
 
-- **NFR-001:** At least 1,000 adversarial concurrent trials MUST show that a stale revision/absence assertion never permits its guarded mutation.
-- **NFR-002:** Fault injection MUST cover assertion evaluation, mutation-condition evaluation, WAL append, durability acknowledgement, and response loss boundaries.
-- **NFR-003:** All assertion error payloads MUST remain below 4 KiB and MUST never contain stored values.
-- **NFR-004:** For the reference workload, in-memory assertion-bearing batch p95 latency overhead MUST be no more than the larger of 15% or 100 microseconds relative to the equivalent mutation-only batch.
-- **NFR-005:** Durable assertion-bearing batch p95 latency MUST remain below 4 ms on the project's reference qualification environment.
-- **NFR-006:** The complete existing unit, protocol, crash, recovery, race, performance, adoption, vet, staticcheck, govulncheck, formatting, and module-verification gates MUST remain green.
-- **NFR-007:** The public contract MUST remain storage-engine neutral and contain no coupling to Spec Kitty, Git, workspaces, tickets, or provider terminology.
+| ID | Title | Requirement | Category | Priority | Status |
+|----|-------|-------------|----------|----------|--------|
+| NFR-001 | Contention correctness | At least 1,000 adversarial trials MUST show that a stale revision or absence assertion never permits its guarded mutation. | Reliability | High | Open |
+| NFR-002 | Fault coverage | Fault injection MUST cover assertion evaluation, mutation-condition evaluation, WAL append, durability acknowledgement, and response loss. | Reliability | High | Open |
+| NFR-003 | Bounded safe errors | Assertion error payloads MUST remain below 4 KiB and MUST never contain stored values. | Security | High | Open |
+| NFR-004 | Memory performance | In-memory assertion-batch p95 overhead MUST be no more than the larger of 15% or 100 microseconds versus its mutation-only control. | Performance | Medium | Open |
+| NFR-005 | Durable performance | Durable assertion-bearing batch p95 latency MUST remain below 4 ms on the reference qualification environment. | Performance | Medium | Open |
+| NFR-006 | Regression safety | Existing unit, protocol, crash, recovery, race, performance, adoption, vet, staticcheck, govulncheck, formatting, and module gates MUST remain green. | Quality | High | Open |
+| NFR-007 | Domain neutrality | The public contract MUST remain storage-engine neutral and uncoupled from Spec Kitty, Git, workspace, ticket, or provider terminology. | Architecture | High | Open |
 
 ## 7. Invariants
 
