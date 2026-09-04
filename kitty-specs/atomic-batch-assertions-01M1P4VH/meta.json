@@ -1,4 +1,16 @@
 {
+  "acceptance_history": [
+    {
+      "acceptance_mode": "local",
+      "accepted_at": "2026-09-04T15:07:39.037259+00:00",
+      "accepted_by": "lynn",
+      "accepted_from_commit": "007d99d2d3aaebae74050de2dc3d42b23917a248"
+    }
+  ],
+  "acceptance_mode": "local",
+  "accepted_at": "2026-09-04T15:07:39.037259+00:00",
+  "accepted_by": "lynn",
+  "accepted_from_commit": "007d99d2d3aaebae74050de2dc3d42b23917a248",
   "coordination_branch": "kitty/mission-atomic-batch-assertions-01M1P4VH",
   "created_at": "2026-09-04T12:03:51.715715+00:00",
   "flattened": false,
