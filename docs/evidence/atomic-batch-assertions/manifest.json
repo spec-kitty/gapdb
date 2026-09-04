@@ -1,13 +1,1 @@
-{
-  "schema_version": 1,
-  "algorithm": "ed25519",
-  "signed_file": "qualification.json",
-  "public_key_pkix_base64": "MCowBQYDK2VwAyEASqq/6wssMl1r9ymiOGkl12VTX8VLrzTn7S4gUfyRzDY=",
-  "signature_base64": "vRw9DT5PDziizPvyZpUzmnXOepAo7PLQblMPhYNdin2hFJVDLYVuTS1AEzfU/q5w9j7fa2fW3fI24h3yeiuQCg==",
-  "files": {
-    "qualification.json": "de6f6c3b225cdc2e2792e62bae99f1ff45b82262b51fb910653b1f9950c08ea3",
-    "performance.txt": "95f0c8ce925010ae1e559de8b1d2a43b7cd07979c7fcd04b1cf8964cbc0868bc",
-    "external-consumption.txt": "a1fbb254db739f361fc6687e2f1b3c4aba483b32eb54d474ae95d5c8b5c26c95",
-    "gates.txt": "750341dbfddcc37d1d3c529ddafae3be46efdd022bd0a2601f18847a4a568457"
-  }
-}
+{"schema_version":2,"candidate_commit":"8de0f7f549791d0299e84a15bbe6b256c8c7afdd","candidate_tree":"b61245808fda7d621f5d037c5e97d83fb2c82886","max_file_bytes":1048576,"files":[{"name":"external-consumption.json","bytes":964,"sha256":"e48de358a352d2573a473e07896fc59bfa770c38da15134909d3e728a8d1ef8d"},{"name":"gates.json","bytes":988,"sha256":"817bd0c885bf71951f66f5d6ea418d32791cb8895cfcc3e2289e1392880de129"},{"name":"performance.json","bytes":97566,"sha256":"49cbced2d8427b1907a6c45eaf6cabe39d49b5d3e247b46eef5e56d5e4e59c26"},{"name":"qualification.json","bytes":2194,"sha256":"96057a2c7781e762105ad0157213429afc3a738ab62cd889815d4468b0ce84bc"}]}
