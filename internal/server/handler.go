@@ -49,7 +49,7 @@ func (server *Server) dispatch(request protocol.Request) protocol.Response {
 		value, callErr := server.runtime.State().DeleteIfRevision(ctx, arguments.Key, arguments.ExpectedRevision, arguments.Ack)
 		err, result = callErr, value.MutationResult
 	case protocol.BatchArguments:
-		value, callErr := server.runtime.State().AtomicBatch(ctx, gapdb.Batch{Ack: arguments.Ack, Mutations: arguments.Mutations})
+		value, callErr := server.runtime.State().AtomicBatch(ctx, gapdb.Batch{Ack: arguments.Ack, Assertions: arguments.Assertions, Mutations: arguments.Mutations})
 		err, result = callErr, value.MutationResult
 	case protocol.ScanArguments:
 		result, err = server.runtime.State().ScanPrefix(arguments.Prefix, arguments.Limit, arguments.Cursor)
