@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	qualifiedAssertionCommit    = "8de0f7f549791d0299e84a15bbe6b256c8c7afdd"
-	qualifiedAssertionTree      = "b61245808fda7d621f5d037c5e97d83fb2c82886"
-	assertionSignerPublicKeyB64 = "om7MgdYehWovo5FHX/lOtwzxoUWBLt2zaavqnnpbmrg="
-	assertionMaxEvidenceBytes   = int64(1 << 20)
+	qualifiedAssertionCommit    = "1de772be90d01911d431a78fecc35d83ad7724ec"
+	qualifiedAssertionTree      = "6ed63041587484836010c302e202e4d65bb00a5a"
+	assertionSignerPublicKeyB64 = "Mef/6YOfnX1MQ1mvzDG5kgoPZsSy6oFpTV8QJiaE9A0="
+	assertionMaxEvidenceBytes   = int64(2 << 20)
 )
 
 var assertionEvidenceFiles = []string{
@@ -97,22 +97,36 @@ type assertionQualificationEvidence struct {
 		StabilityRuns   int    `json:"stability_runs"`
 		StabilityPassed int    `json:"stability_passed"`
 		RetryCount      int    `json:"retry_count"`
-		Windows         []struct {
-			Window               int   `json:"window"`
-			MemoryControlP95NS   int64 `json:"memory_control_p95_ns"`
-			MemoryAssertedP95NS  int64 `json:"memory_asserted_p95_ns"`
-			MemoryAllowanceNS    int64 `json:"memory_allowance_ns"`
-			DurableControlP95NS  int64 `json:"durable_control_p95_ns"`
-			DurableAssertedP95NS int64 `json:"durable_asserted_p95_ns"`
-		} `json:"windows"`
 	} `json:"performance"`
+}
+
+type assertionPerformanceWindowEvidence struct {
+	Run                  int     `json:"run"`
+	Window               int     `json:"window"`
+	MemoryControlNS      []int64 `json:"memory_control_ns"`
+	MemoryAssertedNS     []int64 `json:"memory_asserted_ns"`
+	DurableControlNS     []int64 `json:"durable_control_ns"`
+	DurableAssertedNS    []int64 `json:"durable_asserted_ns"`
+	MemoryControlP95NS   int64   `json:"memory_control_p95_ns"`
+	MemoryAssertedP95NS  int64   `json:"memory_asserted_p95_ns"`
+	MemoryAllowanceNS    int64   `json:"memory_allowance_ns"`
+	DurableControlP95NS  int64   `json:"durable_control_p95_ns"`
+	DurableAssertedP95NS int64   `json:"durable_asserted_p95_ns"`
+	Passed               bool    `json:"passed"`
+}
+
+type assertionPerformanceRunEvidence struct {
+	Run     int                                  `json:"run"`
+	Passed  bool                                 `json:"passed"`
+	Windows []assertionPerformanceWindowEvidence `json:"windows"`
 }
 
 type assertionPerformanceEvidence struct {
 	SchemaVersion uint16 `json:"schema_version"`
 	Configuration struct {
-		Windows              int     `json:"windows"`
-		WarmupPairs          int     `json:"warmup_pairs"`
+		Runs                 int     `json:"runs"`
+		WindowsPerRun        int     `json:"windows_per_run"`
+		WarmupPairs          int     `json:"warmup_pairs_per_run"`
 		MemorySamples        int     `json:"memory_samples_per_window"`
 		DurableSamples       int     `json:"durable_samples_per_window"`
 		ValueBytes           int     `json:"value_bytes"`
@@ -125,14 +139,21 @@ type assertionPerformanceEvidence struct {
 		PairOrder            string  `json:"pair_order"`
 		Transport            string  `json:"transport"`
 		AcknowledgementModes string  `json:"acknowledgement_modes"`
+		RetryPolicy          string  `json:"retry_policy"`
 	} `json:"configuration"`
-	Windows []struct {
-		Window            int     `json:"window"`
-		MemoryControlNS   []int64 `json:"memory_control_ns"`
-		MemoryAssertedNS  []int64 `json:"memory_asserted_ns"`
-		DurableControlNS  []int64 `json:"durable_control_ns"`
-		DurableAssertedNS []int64 `json:"durable_asserted_ns"`
-	} `json:"windows"`
+	ReferenceHost struct {
+		RuntimeVersion    string `json:"runtime_version"`
+		OS                string `json:"os"`
+		Arch              string `json:"arch"`
+		LogicalCPUs       int    `json:"logical_cpus"`
+		GOMAXPROCS        int    `json:"gomaxprocs"`
+		LoadAverageStart  string `json:"load_average_start"`
+		LoadAverageFinish string `json:"load_average_finish"`
+		LoadPolicy        string `json:"load_policy"`
+	} `json:"reference_host"`
+	AttemptedRuns int                               `json:"attempted_runs"`
+	PassedRuns    int                               `json:"passed_runs"`
+	Runs          []assertionPerformanceRunEvidence `json:"runs"`
 }
 
 type assertionExternalEvidence struct {
@@ -246,10 +267,6 @@ func TestAssertionQualificationSemanticMutantsAreRejected(t *testing.T) {
 			value.Contention.MutantsKilled = value.Contention.MutantsKilled[:2]
 		}},
 		{"bad_history_count", func(value *assertionQualificationEvidence) { value.Contention.GuardedFirst++ }},
-		{"bad_p95_math", func(value *assertionQualificationEvidence) { value.Performance.Windows[0].MemoryControlP95NS++ }},
-		{"bad_p95_threshold", func(value *assertionQualificationEvidence) {
-			value.Performance.Windows[0].MemoryAssertedP95NS += 200000
-		}},
 		{"stale_commit", func(value *assertionQualificationEvidence) { value.CandidateCommit = strings.Repeat("0", 40) }},
 		{"stale_tree", func(value *assertionQualificationEvidence) { value.CandidateTree = strings.Repeat("0", 40) }},
 		{"retry_count", func(value *assertionQualificationEvidence) { value.Performance.RetryCount = 1 }},
@@ -262,6 +279,37 @@ func TestAssertionQualificationSemanticMutantsAreRejected(t *testing.T) {
 			mutant.mutate(&candidate)
 			if err := validateAssertionQualification(candidate, performance); err == nil {
 				t.Fatal("semantic evidence mutant survived")
+			}
+		})
+	}
+}
+
+func TestAssertionPerformanceEvidenceRejectsCompleteCampaignMutants(t *testing.T) {
+	var valid assertionPerformanceEvidence
+	decodeStrictBytes(mustRead(t, filepath.Join(assertionEvidenceDirectory(t), "performance.json")), &valid)
+	mutants := []struct {
+		name   string
+		mutate func(*assertionPerformanceEvidence)
+	}{
+		{"missing_run", func(value *assertionPerformanceEvidence) { value.Runs = value.Runs[:10] }},
+		{"missing_window", func(value *assertionPerformanceEvidence) { value.Runs[4].Windows = value.Runs[4].Windows[:2] }},
+		{"altered_attempted_census", func(value *assertionPerformanceEvidence) { value.AttemptedRuns = 10 }},
+		{"altered_passed_census", func(value *assertionPerformanceEvidence) { value.PassedRuns = 10 }},
+		{"failed_durable_window", func(value *assertionPerformanceEvidence) {
+			window := &value.Runs[7].Windows[1]
+			for index := range window.DurableAssertedNS {
+				window.DurableAssertedNS[index] = value.Configuration.DurableMaximumNanos
+			}
+			window.DurableAssertedP95NS = value.Configuration.DurableMaximumNanos
+		}},
+		{"raw_p95_mismatch", func(value *assertionPerformanceEvidence) { value.Runs[2].Windows[2].MemoryControlP95NS++ }},
+	}
+	for _, mutant := range mutants {
+		t.Run(mutant.name, func(t *testing.T) {
+			candidate := cloneJSON(t, valid)
+			mutant.mutate(&candidate)
+			if err := validateAssertionPerformance(candidate); err == nil {
+				t.Fatal("performance evidence mutant survived")
 			}
 		})
 	}
@@ -372,57 +420,56 @@ func validateAssertionQualification(value assertionQualificationEvidence, perfor
 	if value.Performance.RawArtifact != "performance.json" || value.Performance.StabilityRuns != 11 || value.Performance.StabilityPassed != 11 || value.Performance.RetryCount != 0 {
 		return errors.New("performance stability qualification is incomplete")
 	}
-	return validateAssertionPerformance(performance, value.Performance.Windows)
+	return validateAssertionPerformance(performance)
 }
 
-func validateAssertionPerformance(raw assertionPerformanceEvidence, summaries []struct {
-	Window               int   `json:"window"`
-	MemoryControlP95NS   int64 `json:"memory_control_p95_ns"`
-	MemoryAssertedP95NS  int64 `json:"memory_asserted_p95_ns"`
-	MemoryAllowanceNS    int64 `json:"memory_allowance_ns"`
-	DurableControlP95NS  int64 `json:"durable_control_p95_ns"`
-	DurableAssertedP95NS int64 `json:"durable_asserted_p95_ns"`
-}) error {
+func validateAssertionPerformance(raw assertionPerformanceEvidence) error {
 	config := raw.Configuration
-	if raw.SchemaVersion != 1 || config.Windows != 3 || config.WarmupPairs != 256 || config.MemorySamples != 2048 || config.DurableSamples != 256 || config.ValueBytes != 5 || config.ControlTokenBytes != 8 || config.AssertedTokenBytes != 8 || config.MemoryRelativeLimit != 0.15 || config.MemoryMinimumNanos != 100000 || config.DurableMaximumNanos != 4000000 || config.Quantile != "nearest_rank_p95" || config.PairOrder != "alternating_control_first_asserted_first" || config.Transport != "public_unix_socket" || config.AcknowledgementModes != "memory_and_durable" || len(raw.Windows) != 3 || len(summaries) != 3 {
+	invalidRelativeLimit := math.IsNaN(config.MemoryRelativeLimit) || math.IsInf(config.MemoryRelativeLimit, 0)
+	invalidHost := raw.ReferenceHost.RuntimeVersion == "" || raw.ReferenceHost.OS == "" || raw.ReferenceHost.Arch == "" || raw.ReferenceHost.LogicalCPUs <= 0 || raw.ReferenceHost.GOMAXPROCS <= 0 || raw.ReferenceHost.LoadAverageStart == "" || raw.ReferenceHost.LoadAverageFinish == "" || raw.ReferenceHost.LoadPolicy != "single_fixed_campaign_no_parallel_gapdb_qualification"
+	if raw.SchemaVersion != 2 || config.Runs != 11 || config.WindowsPerRun != 3 || config.WarmupPairs != 256 || config.MemorySamples != 2048 || config.DurableSamples != 1024 || config.ValueBytes != 5 || config.ControlTokenBytes != 8 || config.AssertedTokenBytes != config.ControlTokenBytes || invalidRelativeLimit || config.MemoryRelativeLimit != 0.15 || config.MemoryMinimumNanos != 100000 || config.DurableMaximumNanos != 4000000 || config.Quantile != "nearest_rank_p95" || config.PairOrder != "alternating_control_first_asserted_first" || config.Transport != "public_unix_socket" || config.AcknowledgementModes != "memory_and_durable" || config.RetryPolicy != "none_no_omissions" || invalidHost || raw.AttemptedRuns != config.Runs || raw.PassedRuns != config.Runs || len(raw.Runs) != config.Runs {
 		return errors.New("performance configuration is incomplete")
 	}
-	for index, window := range raw.Windows {
-		if window.Window != index || summaries[index].Window != index || len(window.MemoryControlNS) != config.MemorySamples || len(window.MemoryAssertedNS) != config.MemorySamples || len(window.DurableControlNS) != config.DurableSamples || len(window.DurableAssertedNS) != config.DurableSamples {
-			return fmt.Errorf("performance window %d sample census mismatch", index)
+	for runIndex, run := range raw.Runs {
+		if run.Run != runIndex || !run.Passed || len(run.Windows) != config.WindowsPerRun {
+			return fmt.Errorf("performance run %d census or verdict mismatch", runIndex)
 		}
-		for _, samples := range [][]int64{window.MemoryControlNS, window.MemoryAssertedNS, window.DurableControlNS, window.DurableAssertedNS} {
-			for _, sample := range samples {
-				if sample <= 0 || sample > int64(60e9) {
-					return fmt.Errorf("performance window %d contains invalid sample", index)
+		for windowIndex, window := range run.Windows {
+			if window.Run != runIndex || window.Window != windowIndex || !window.Passed || len(window.MemoryControlNS) != config.MemorySamples || len(window.MemoryAssertedNS) != config.MemorySamples || len(window.DurableControlNS) != config.DurableSamples || len(window.DurableAssertedNS) != config.DurableSamples {
+				return fmt.Errorf("performance run %d window %d sample census mismatch", runIndex, windowIndex)
+			}
+			for _, samples := range [][]int64{window.MemoryControlNS, window.MemoryAssertedNS, window.DurableControlNS, window.DurableAssertedNS} {
+				for _, sample := range samples {
+					if sample <= 0 || sample > int64(60e9) {
+						return fmt.Errorf("performance run %d window %d contains invalid sample", runIndex, windowIndex)
+					}
 				}
 			}
-		}
-		memoryControl := nearestRankP95Evidence(window.MemoryControlNS)
-		memoryAsserted := nearestRankP95Evidence(window.MemoryAssertedNS)
-		durableControl := nearestRankP95Evidence(window.DurableControlNS)
-		durableAsserted := nearestRankP95Evidence(window.DurableAssertedNS)
-		allowance := max(int64(math.Ceil(float64(memoryControl)*config.MemoryRelativeLimit)), config.MemoryMinimumNanos)
-		summary := summaries[index]
-		if summary.MemoryControlP95NS != memoryControl || summary.MemoryAssertedP95NS != memoryAsserted || summary.MemoryAllowanceNS != allowance || summary.DurableControlP95NS != durableControl || summary.DurableAssertedP95NS != durableAsserted {
-			return fmt.Errorf("performance window %d summary is not recomputable", index)
-		}
-		if memoryAsserted > memoryControl+allowance || durableAsserted >= config.DurableMaximumNanos {
-			return fmt.Errorf("performance window %d exceeded threshold", index)
+			memoryControl := nearestRankP95Evidence(window.MemoryControlNS)
+			memoryAsserted := nearestRankP95Evidence(window.MemoryAssertedNS)
+			durableControl := nearestRankP95Evidence(window.DurableControlNS)
+			durableAsserted := nearestRankP95Evidence(window.DurableAssertedNS)
+			allowance := max(int64(float64(memoryControl)*config.MemoryRelativeLimit), config.MemoryMinimumNanos)
+			if window.MemoryControlP95NS != memoryControl || window.MemoryAssertedP95NS != memoryAsserted || window.MemoryAllowanceNS != allowance || window.DurableControlP95NS != durableControl || window.DurableAssertedP95NS != durableAsserted {
+				return fmt.Errorf("performance run %d window %d summary is not recomputable", runIndex, windowIndex)
+			}
+			if memoryAsserted > memoryControl+allowance || durableAsserted >= config.DurableMaximumNanos {
+				return fmt.Errorf("performance run %d window %d exceeded threshold", runIndex, windowIndex)
+			}
 		}
 	}
 	return nil
 }
 
 func validateAssertionExternal(value assertionExternalEvidence) error {
-	if value.SchemaVersion != 1 || value.CandidateCommit != qualifiedAssertionCommit || value.CandidateTree != qualifiedAssertionTree || value.RemoteRef != "refs/heads/qualification/atomic-batch-assertions-01M1P4VH" || value.RemoteSHA != qualifiedAssertionCommit || value.Module != "github.com/spec-kitty/gapdb" || value.ResolvedVersion != "v0.0.0-20260904141708-8de0f7f54979" || value.ModuleSum != "h1:QVa3SoUB1Wwu45ctY8AEuF8nup8VJ7sZTCNc675N2AQ=" || value.GoModSum != "h1:8xNZ3k+SQIqcxLkS8bjbooOAv9xzZcbg5arjKaV6fcQ=" || value.GoWork != "off" || value.GoProxy != "direct" || !value.FreshModuleCache || !value.FreshBuildCache || !value.FreshBinaryDirectory || value.Replace || !value.InstalledDaemon || !value.PassingBatch || !value.StaleBatchRefused || value.StaleErrorCode != "CONDITION_FAILED" || !value.StaleTargetAbsent || value.ProgramOutput != "external assertion qualification passed revision=2 stale_code=CONDITION_FAILED" || value.RetryCount != 0 {
+	if value.SchemaVersion != 1 || value.CandidateCommit != qualifiedAssertionCommit || value.CandidateTree != qualifiedAssertionTree || value.RemoteRef != "refs/heads/qualification/atomic-batch-assertions-01M1P4VH" || value.RemoteSHA != qualifiedAssertionCommit || value.Module != "github.com/spec-kitty/gapdb" || value.ResolvedVersion != "v0.0.0-20260904144404-1de772be90d0" || value.ModuleSum != "h1:v3Z7hUoXCYMcOstpNd3fZ6smj1T3fDwZAV236L7Tj80=" || value.GoModSum != "h1:8xNZ3k+SQIqcxLkS8bjbooOAv9xzZcbg5arjKaV6fcQ=" || value.GoWork != "off" || value.GoProxy != "direct" || !value.FreshModuleCache || !value.FreshBuildCache || !value.FreshBinaryDirectory || value.Replace || !value.InstalledDaemon || !value.PassingBatch || !value.StaleBatchRefused || value.StaleErrorCode != "CONDITION_FAILED" || !value.StaleTargetAbsent || value.ProgramOutput != "external assertion qualification passed revision=2 stale_code=CONDITION_FAILED" || value.RetryCount != 0 {
 		return errors.New("external consumption evidence is incomplete")
 	}
 	return nil
 }
 
 func validateAssertionGates(value assertionGatesEvidence) error {
-	want := []string{"go test ./...", "go test -race ./...", "go vet ./...", "staticcheck ./...", "govulncheck ./...", "go mod verify", "gofmt -l .", "git diff --check", "go build ./cmd/gapdbd", "go build ./cmd/gapctl", "GAPDB_ASSERTION_ACCEPTANCE=1 go test ./tests/performance -run TestAssertionPerformancePairedSameHostWindows -count=11"}
+	want := []string{"go test ./...", "go test -race ./...", "go vet ./...", "staticcheck ./...", "govulncheck ./...", "go mod verify", "gofmt -l .", "git diff --check", "go build -o /tmp/gapdb-wp03-gates/gapdbd ./cmd/gapdbd", "go build -o /tmp/gapdb-wp03-gates/gapctl ./cmd/gapctl", "GAPDB_ASSERTION_ACCEPTANCE=1 go test ./tests/performance -run TestAssertionPerformancePairedSameHostWindows -count=1"}
 	if value.SchemaVersion != 1 || value.CandidateCommit != qualifiedAssertionCommit || value.CandidateTree != qualifiedAssertionTree || value.GoVersion != "go1.26.7" || value.OS != "linux" || value.Arch != "amd64" || value.Kernel == "" || len(value.Gates) != len(want) {
 		return errors.New("gate identity is incomplete")
 	}

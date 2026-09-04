@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
-  "candidate_commit": "8de0f7f549791d0299e84a15bbe6b256c8c7afdd",
-  "candidate_tree": "b61245808fda7d621f5d037c5e97d83fb2c82886",
+  "candidate_commit": "1de772be90d01911d431a78fecc35d83ad7724ec",
+  "candidate_tree": "6ed63041587484836010c302e202e4d65bb00a5a",
   "frozen_adoption": {
     "contract_version": "gapdb-phase1/v1",
     "scenario_count": 14,
@@ -44,11 +44,6 @@
     "raw_artifact": "performance.json",
     "stability_runs": 11,
     "stability_passed": 11,
-    "retry_count": 0,
-    "windows": [
-      {"window": 0, "memory_control_p95_ns": 278049, "memory_asserted_p95_ns": 316278, "memory_allowance_ns": 100000, "durable_control_p95_ns": 578206, "durable_asserted_p95_ns": 566877},
-      {"window": 1, "memory_control_p95_ns": 254828, "memory_asserted_p95_ns": 277748, "memory_allowance_ns": 100000, "durable_control_p95_ns": 576236, "durable_asserted_p95_ns": 566156},
-      {"window": 2, "memory_control_p95_ns": 248368, "memory_asserted_p95_ns": 279778, "memory_allowance_ns": 100000, "durable_control_p95_ns": 606416, "durable_asserted_p95_ns": 630866}
-    ]
+    "retry_count": 0
   }
 }

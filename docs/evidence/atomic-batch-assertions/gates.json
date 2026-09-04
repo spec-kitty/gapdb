@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "candidate_commit": "8de0f7f549791d0299e84a15bbe6b256c8c7afdd",
-  "candidate_tree": "b61245808fda7d621f5d037c5e97d83fb2c82886",
+  "candidate_commit": "1de772be90d01911d431a78fecc35d83ad7724ec",
+  "candidate_tree": "6ed63041587484836010c302e202e4d65bb00a5a",
   "go_version": "go1.26.7",
   "os": "linux",
   "arch": "amd64",
@@ -15,8 +15,8 @@
     {"command": "go mod verify", "status": "pass"},
     {"command": "gofmt -l .", "status": "pass", "output": ""},
     {"command": "git diff --check", "status": "pass"},
-    {"command": "go build ./cmd/gapdbd", "status": "pass"},
-    {"command": "go build ./cmd/gapctl", "status": "pass"},
-    {"command": "GAPDB_ASSERTION_ACCEPTANCE=1 go test ./tests/performance -run TestAssertionPerformancePairedSameHostWindows -count=11", "status": "pass"}
+    {"command": "go build -o /tmp/gapdb-wp03-gates/gapdbd ./cmd/gapdbd", "status": "pass"},
+    {"command": "go build -o /tmp/gapdb-wp03-gates/gapctl ./cmd/gapctl", "status": "pass"},
+    {"command": "GAPDB_ASSERTION_ACCEPTANCE=1 go test ./tests/performance -run TestAssertionPerformancePairedSameHostWindows -count=1", "status": "pass"}
   ]
 }
