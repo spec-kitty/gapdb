@@ -27,6 +27,9 @@
       "last_event_id": "01M1P6FFATVEADCDVNZ4QTXQPK",
       "last_transition_at": "2026-09-04T12:32:13.146869+00:00",
       "model": "__resolved_model_absent__",
+      "notes": [
+        "Implemented public assertion model, combined validation/ownership rules, strict additive Unix/client protocol, legacy compatibility, and mutant-sensitive tests. Focused x20, race x3, full repository, vet, and staticcheck green at a336c7a. Force is limited to pre-existing planning artifacts inherited by the runtime-created lane branch."
+      ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 3753728,
