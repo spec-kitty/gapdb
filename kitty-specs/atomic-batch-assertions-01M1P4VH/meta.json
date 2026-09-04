@@ -7,6 +7,7 @@
   "mission_number": null,
   "mission_slug": "atomic-batch-assertions-01M1P4VH",
   "mission_type": "software-dev",
+  "pr_bound": true,
   "purpose_context": "Spec Kitty workspace preparation must atomically assert unchanged execution and eligibility authority in the same serialized transaction as workspace mutations. Same-byte writes fabricate revision churn, while current GapDB batches expose only mutations. This mission adds bounded, protocol-visible read assertions evaluated under the serialized writer before any mutation, with exact acknowledgement and crash/recovery semantics.",
   "purpose_tldr": "Add first-class no-write transactional condition checks to GapDB for Spec Kitty authority guards.",
   "slug": "atomic-batch-assertions-01M1P4VH",
