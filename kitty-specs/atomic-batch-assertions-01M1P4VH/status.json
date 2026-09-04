@@ -1,7 +1,7 @@
 {
-  "event_count": 43,
-  "last_event_id": "01M1PDNTASYSBDJ330ER5H6S81",
-  "materialized_at": "2026-09-04T14:38:01.042809+00:00",
+  "event_count": 45,
+  "last_event_id": "01M1PEMWCWENTY88QDMZBF9T8Y",
+  "materialized_at": "2026-09-04T14:54:58.972576+00:00",
   "mission_number": "",
   "mission_slug": "atomic-batch-assertions-01M1P4VH",
   "mission_type": "software-dev",
@@ -12,8 +12,8 @@
     "claimed": 0,
     "done": 2,
     "for_review": 0,
-    "in_progress": 1,
-    "in_review": 0,
+    "in_progress": 0,
+    "in_review": 1,
     "planned": 0
   },
   "work_packages": {
@@ -85,19 +85,20 @@
     },
     "WP03": {
       "actor": "codex",
-      "agent": null,
-      "agent_profile": "implementer-ivan",
+      "agent": "codex",
+      "agent_profile": "reviewer-renata",
       "agent_profile_version": "1.0",
-      "force_count": 5,
-      "lane": "in_progress",
-      "last_event_id": "01M1PDNTASYSBDJ330ER5H6S81",
-      "last_transition_at": "2026-09-04T14:38:01.042809+00:00",
+      "force_count": 6,
+      "lane": "in_review",
+      "last_event_id": "01M1PEMWCWENTY88QDMZBF9T8Y",
+      "last_transition_at": "2026-09-04T14:54:58.972576+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "Qualification candidate a5f79adb and sealed evidence 4808311d are complete; full and race gates pass. Force is limited to inherited committed lifecycle artifacts from approved dependencies.",
         "Review-cycle-1 repaired with candidate 8de0f7f, caller-pinned signed evidence 4fefead, fresh external consumption, stable 11-run performance, and full gates.",
         "Review passed at candidate 8de0f7f549791d0299e84a15bbe6b256c8c7afdd (tree b61245808fda7d621f5d037c5e97d83fb2c82886) and evidence 4fefead8bb66d1cab58f2a4bbbb57e90cfa7ef1e: all six cycle-1 findings closed; 1,000 real-Unix trials reconcile exact authority/target state and kill state/result mutants; live/replay watches are delimiter-bounded; caller-pinned signed manifest rejects composed trust/filesystem tampering; raw p95 evidence independently recomputes and isolated acceptance passes 11/11; public/Unix bounds prove zero effects through restart; repository-wide formatting, full/race/static/security/build/module gates pass; exact remote no-replace module installs and runs; frozen 14-scenario/SQLite boundary unchanged. Forced transition used only because the lane inherits already-committed mission lifecycle artifacts from prior coordination merges; lane history was not rewritten.",
-        "Secondary audit reopened approval: sealed 11-run performance census is not fully reproducible from one-run raw evidence"
+        "Secondary audit reopened approval: sealed 11-run performance census is not fully reproducible from one-run raw evidence",
+        "Cycle 3: fixed one-invocation 11x3 performance campaign, fresh external exact-SHA consumption, and resealed caller-pinned evidence; force applies only to inherited lane planning artifacts."
       ],
       "provider": "__resolved_provider_absent__",
       "review": null,
@@ -106,14 +107,14 @@
         "reviewer": "lynncoleart",
         "verdict": "approved"
       },
-      "role": "implementer",
-      "shell_pid": null,
-      "shell_pid_created_at": null,
+      "role": "reviewer",
+      "shell_pid": 3753728,
+      "shell_pid_created_at": "1788448726.47",
       "subtasks": {
-        "T009": "planned",
-        "T010": "planned",
-        "T011": "planned",
-        "T012": "planned"
+        "T009": "done",
+        "T010": "done",
+        "T011": "done",
+        "T012": "done"
       }
     }
   }
