@@ -19,7 +19,7 @@
   "work_packages": {
     "WP01": {
       "actor": "user",
-      "agent": "codex",
+      "agent": null,
       "agent_profile": "reviewer-renata",
       "agent_profile_version": "1.0",
       "force_count": 4,
@@ -40,13 +40,13 @@
         "verdict": "changes_requested"
       },
       "role": "reviewer",
-      "shell_pid": 3753728,
-      "shell_pid_created_at": "1788448726.47",
+      "shell_pid": null,
+      "shell_pid_created_at": null,
       "subtasks": {
-        "T001": "done",
-        "T002": "done",
-        "T003": "done",
-        "T004": "done"
+        "T001": "planned",
+        "T002": "planned",
+        "T003": "planned",
+        "T004": "planned"
       }
     },
     "WP02": {
