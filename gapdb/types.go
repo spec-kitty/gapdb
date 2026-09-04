@@ -141,6 +141,7 @@ type Error struct {
 	ActiveSnapshotRevision     *Revision      `json:"active_snapshot_revision,omitempty"`
 	MutationIndex              *int           `json:"mutation_index,omitempty"`
 	MutationIndexes            []int          `json:"mutation_indexes,omitempty"`
+	AssertionIndex             *int           `json:"assertion_index,omitempty"`
 	ReceivedVersion            *uint64        `json:"received_version,omitempty"`
 	SupportedVersions          []uint64       `json:"supported_versions,omitempty"`
 	ExpectedManifestGeneration *uint64        `json:"expected_manifest_generation,omitempty"`
@@ -207,6 +208,10 @@ func (e *Error) Clone() *Error {
 	clone.SafeActions = append([]SafeAction(nil), e.SafeActions...)
 	clone.MutationIndexes = append([]int(nil), e.MutationIndexes...)
 	clone.SupportedVersions = append([]uint64(nil), e.SupportedVersions...)
+	if e.AssertionIndex != nil {
+		value := *e.AssertionIndex
+		clone.AssertionIndex = &value
+	}
 	return &clone
 }
 
@@ -359,6 +364,33 @@ type Mutation struct {
 	ExpiresAt *time.Time   `json:"expires_at,omitempty"`
 }
 
+// Assertion is a read-only admission predicate evaluated against the same
+// pre-batch logical view as mutation conditions. It is never persisted and
+// never counts as a mutation.
+type Assertion struct {
+	Key       string    `json:"key"`
+	Condition Condition `json:"condition"`
+}
+
+func (a Assertion) Validate(limits Limits) error {
+	if err := validateKey(a.Key, limits); err != nil {
+		return err
+	}
+	switch a.Condition.Kind {
+	case ConditionAbsent:
+		if a.Condition.ExpectedRevision != 0 {
+			return invalidField("condition.expected_revision", "is valid only for revision assertions")
+		}
+	case ConditionRevision:
+		if a.Condition.ExpectedRevision == 0 {
+			return invalidField("condition.expected_revision", "must be greater than zero")
+		}
+	default:
+		return invalidField("condition.kind", "assertions require absent or revision")
+	}
+	return nil
+}
+
 func NewPutMutation(key string, value []byte, condition Condition, expiresAt *time.Time) Mutation {
 	return Mutation{Kind: MutationPut, Key: key, Condition: condition, Value: cloneOpaqueBytes(value), ExpiresAt: cloneTime(expiresAt)}
 }
@@ -420,12 +452,19 @@ func (m Mutation) ValidateAt(limits Limits, effectiveNow time.Time) error {
 }
 
 type Batch struct {
-	Ack       AckMode    `json:"ack"`
-	Mutations []Mutation `json:"mutations"`
+	Ack        AckMode     `json:"ack"`
+	Assertions []Assertion `json:"assertions,omitempty"`
+	Mutations  []Mutation  `json:"mutations"`
 }
 
+const (
+	maxDiagnosticKeyBytes = 256
+	batchBaseBytes        = 32
+	batchOperationBytes   = 20
+)
+
 func (b Batch) Clone() Batch {
-	clone := Batch{Ack: b.Ack, Mutations: make([]Mutation, len(b.Mutations))}
+	clone := Batch{Ack: b.Ack, Assertions: append([]Assertion(nil), b.Assertions...), Mutations: make([]Mutation, len(b.Mutations))}
 	for i, mutation := range b.Mutations {
 		clone.Mutations[i] = mutation.Clone()
 	}
@@ -439,27 +478,54 @@ func (b Batch) Validate(limits Limits) error {
 	if len(b.Mutations) == 0 {
 		return invalidField("mutations", "must contain at least one mutation")
 	}
-	if len(b.Mutations) > limits.MaxBatchOperations {
-		return &Error{Code: CodeBatchTooLarge, Message: "Batch exceeds the configured operation limit.", Retry: RetryNever, ReceivedOperations: len(b.Mutations), MaximumOperations: limits.MaxBatchOperations, SafeActions: []SafeAction{ActionSplitBatch, ActionAbort}}
+	operationCount := len(b.Assertions) + len(b.Mutations)
+	if operationCount < len(b.Assertions) || operationCount > limits.MaxBatchOperations {
+		return &Error{Code: CodeBatchTooLarge, Message: "Batch exceeds the configured operation limit.", Retry: RetryNever, ReceivedOperations: operationCount, MaximumOperations: limits.MaxBatchOperations, SafeActions: []SafeAction{ActionSplitBatch, ActionAbort}}
 	}
-	seen := make(map[string]int, len(b.Mutations))
-	approximateBytes := 0
+	type batchKey struct {
+		assertion bool
+		index     int
+	}
+	seen := make(map[string]batchKey, operationCount)
+	approximateBytes := batchBaseBytes
+	for i, assertion := range b.Assertions {
+		if first, ok := seen[assertion.Key]; ok {
+			index := i
+			failure := &Error{Code: CodeDuplicateKey, Message: "A key occurs more than once in the batch.", Retry: RetryNever, Key: diagnosticKey(assertion.Key), AssertionIndex: &index, SafeActions: []SafeAction{ActionDeduplicateBatch, ActionAbort}}
+			if !first.assertion {
+				failure.MutationIndex = intPointer(first.index)
+			}
+			return failure
+		}
+		seen[assertion.Key] = batchKey{assertion: true, index: i}
+		if err := assertion.Validate(limits); err != nil {
+			return err
+		}
+		addition := batchOperationBytes + len(assertion.Key)
+		if approximateBytes > limits.MaxBatchBytes || addition > limits.MaxBatchBytes-approximateBytes {
+			return batchBytesError(approximateBytes+addition, limits.MaxBatchBytes)
+		}
+		approximateBytes += addition
+	}
 	for i, mutation := range b.Mutations {
 		if first, ok := seen[mutation.Key]; ok {
-			return &Error{Code: CodeDuplicateKey, Message: "A key occurs more than once in the batch.", Retry: RetryNever, Key: mutation.Key, MutationIndex: intPointer(i), MutationIndexes: []int{first, i}, SafeActions: []SafeAction{ActionDeduplicateBatch, ActionAbort}}
+			failure := &Error{Code: CodeDuplicateKey, Message: "A key occurs more than once in the batch.", Retry: RetryNever, Key: diagnosticKey(mutation.Key), MutationIndex: intPointer(i), SafeActions: []SafeAction{ActionDeduplicateBatch, ActionAbort}}
+			if first.assertion {
+				failure.AssertionIndex = intPointer(first.index)
+			} else {
+				failure.MutationIndexes = []int{first.index, i}
+			}
+			return failure
 		}
-		seen[mutation.Key] = i
+		seen[mutation.Key] = batchKey{index: i}
 		if err := mutation.Validate(limits); err != nil {
 			return err
 		}
-		if len(mutation.Key) > limits.MaxBatchBytes-approximateBytes {
-			return batchBytesError(approximateBytes+len(mutation.Key), limits.MaxBatchBytes)
+		addition := batchOperationBytes + len(mutation.Key) + len(mutation.Value)
+		if approximateBytes > limits.MaxBatchBytes || addition > limits.MaxBatchBytes-approximateBytes {
+			return batchBytesError(approximateBytes+addition, limits.MaxBatchBytes)
 		}
-		approximateBytes += len(mutation.Key)
-		if len(mutation.Value) > limits.MaxBatchBytes-approximateBytes {
-			return batchBytesError(approximateBytes+len(mutation.Value), limits.MaxBatchBytes)
-		}
-		approximateBytes += len(mutation.Value)
+		approximateBytes += addition
 	}
 	return nil
 }
@@ -481,6 +547,7 @@ type MutationResult struct {
 	Ack                    AckMode  `json:"ack"`
 	DurableThroughRevision Revision `json:"durable_through_revision"`
 	MutationCount          int      `json:"mutation_count,omitempty"`
+	AssertionCount         int      `json:"assertion_count,omitempty"`
 }
 
 type ScanPage struct {
@@ -576,6 +643,17 @@ func cloneTime(value *time.Time) *time.Time {
 }
 
 func intPointer(value int) *int { return &value }
+
+func diagnosticKey(key string) string {
+	if len(key) <= maxDiagnosticKeyBytes {
+		return key
+	}
+	end := maxDiagnosticKeyBytes
+	for end > 0 && !utf8.ValidString(key[:end]) {
+		end--
+	}
+	return key[:end]
+}
 
 func batchBytesError(received, maximum int) error {
 	return &Error{Code: CodeBatchTooLarge, Message: "Batch exceeds the configured byte limit.", Retry: RetryNever, ReceivedBytes: received, MaximumBytes: maximum, SafeActions: []SafeAction{ActionSplitBatch, ActionAbort}}

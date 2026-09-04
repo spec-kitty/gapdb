@@ -1,0 +1,16 @@
+{
+  "coordination_branch": "kitty/mission-atomic-batch-assertions-01M1P4VH",
+  "created_at": "2026-09-04T12:03:51.715715+00:00",
+  "flattened": false,
+  "friendly_name": "Atomic Batch Read Assertions",
+  "mission_id": "01M1P4VHS3VJYM0S0V3PPV9WYZ",
+  "mission_number": null,
+  "mission_slug": "atomic-batch-assertions-01M1P4VH",
+  "mission_type": "software-dev",
+  "pr_bound": true,
+  "purpose_context": "Spec Kitty workspace preparation must atomically assert unchanged execution and eligibility authority in the same serialized transaction as workspace mutations. Same-byte writes fabricate revision churn, while current GapDB batches expose only mutations. This mission adds bounded, protocol-visible read assertions evaluated under the serialized writer before any mutation, with exact acknowledgement and crash/recovery semantics.",
+  "purpose_tldr": "Add first-class no-write transactional condition checks to GapDB for Spec Kitty authority guards.",
+  "slug": "atomic-batch-assertions-01M1P4VH",
+  "target_branch": "feat/atomic-batch-assertions",
+  "topology": "lanes_with_coord"
+}
