@@ -1,0 +1,13 @@
+{
+  "wp_id": "WP02",
+  "captured_at": "2026-09-04T13:01:40Z",
+  "base_branch": "feat/atomic-batch-assertions",
+  "base_commit": "4d6c0565666e489e22b33ce5b6c83c923f331d74",
+  "test_runner": "pytest",
+  "total": 0,
+  "passed": 0,
+  "failed": 0,
+  "skipped": 0,
+  "failures": [],
+  "source_identity": "GateCoverageScopeSource/junit_xml"
+}
