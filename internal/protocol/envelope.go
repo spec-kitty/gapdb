@@ -14,7 +14,11 @@ import (
 	"github.com/spec-kitty/gapdb/gapdb"
 )
 
-const SchemaVersion uint64 = 1
+const (
+	SchemaVersion                  uint64 = 1
+	maxAssertionDiagnosticBytes           = 4 << 10
+	maxAssertionDiagnosticKeyBytes        = 256
+)
 
 type Operation string
 
@@ -288,6 +292,9 @@ func EncodeResponse(response Response) ([]byte, error) {
 		event = &clone
 	}
 	structuredError := response.Error.Clone()
+	if structuredError != nil && structuredError.AssertionIndex != nil {
+		structuredError.Key = boundedAssertionDiagnosticKey(structuredError.Key)
+	}
 	var registrationRevision *gapdb.Revision
 	if response.Stream == StreamStarted {
 		value := response.RegistrationRevision
@@ -316,6 +323,9 @@ func EncodeResponse(response Response) ([]byte, error) {
 	}
 	if len(payload) > gapdb.HardMaxFrameBytes {
 		return nil, frameTooLarge(len(payload), gapdb.HardMaxFrameBytes)
+	}
+	if structuredError != nil && structuredError.AssertionIndex != nil && len(payload) >= maxAssertionDiagnosticBytes {
+		return nil, invalidProtocol("error", "assertion diagnostic exceeds its safe bound", nil)
 	}
 	if _, err := DecodeResponse(payload, gapdb.HardMaxFrameBytes); err != nil {
 		return nil, err
@@ -397,6 +407,9 @@ func DecodeResponse(payload []byte, maximum int) (Response, error) {
 		}
 		if err := validateStructuredError(&decoded, envelope.Error); err != nil {
 			return Response{}, err
+		}
+		if decoded.AssertionIndex != nil && len(payload) >= maxAssertionDiagnosticBytes {
+			return Response{}, invalidProtocol("error", "assertion diagnostic exceeds its safe bound", nil)
 		}
 		structuredError = &decoded
 	}
@@ -755,6 +768,9 @@ func validateStructuredError(value *gapdb.Error, raw []byte) error {
 	if value.AssertionIndex != nil && *value.AssertionIndex < 0 {
 		return invalidProtocol("error.assertion_index", "must not be negative", nil)
 	}
+	if value.AssertionIndex != nil && (len(raw) >= maxAssertionDiagnosticBytes || value.Key != boundedAssertionDiagnosticKey(value.Key)) {
+		return invalidProtocol("error", "assertion diagnostic exceeds its safe bound", nil)
+	}
 	if !equalSafeActions(value.SafeActions, definition.SafeActions) {
 		return invalidProtocol("error.safe_actions", "must exactly match the stable code-specific actions", nil)
 	}
@@ -962,8 +978,40 @@ func validateAlternativeEvidence(code gapdb.ErrorCode, object map[string]json.Ra
 		if mutation == assertion {
 			return invalidProtocol("error", "condition evidence must identify exactly one mutation or assertion", nil)
 		}
+		if assertion {
+			switch gapdb.ConditionKind(rawStringValue(object["condition"])) {
+			case gapdb.ConditionAbsent:
+				if _, present := object["expected_revision"]; present {
+					return invalidProtocol("error.expected_revision", "must be omitted for an absent assertion", nil)
+				}
+			case gapdb.ConditionRevision:
+				var expected gapdb.Revision
+				if json.Unmarshal(object["expected_revision"], &expected) != nil || expected == 0 {
+					return invalidProtocol("error.expected_revision", "must be a positive revision", nil)
+				}
+			default:
+				return invalidProtocol("error.condition", "must be absent or revision for an assertion", nil)
+			}
+		}
 	}
 	return nil
+}
+
+func rawStringValue(raw json.RawMessage) string {
+	var value string
+	_ = json.Unmarshal(raw, &value)
+	return value
+}
+
+func boundedAssertionDiagnosticKey(key string) string {
+	if len(key) <= maxAssertionDiagnosticKeyBytes {
+		return key
+	}
+	end := maxAssertionDiagnosticKeyBytes
+	for end > 0 && !utf8.ValidString(key[:end]) {
+		end--
+	}
+	return key[:end]
 }
 
 func decodeArguments(operation Operation, raw []byte, limits gapdb.Limits) (any, error) {

@@ -12,6 +12,8 @@ import (
 	"unicode/utf8"
 )
 
+const maxAssertionDiagnosticBytes = 4 << 10
+
 // validateClientResponse is the deletion-sensitive protocol-v1 validation
 // boundary. Public result decoding is deliberately performed only after this
 // function has accepted every nested field and spelling.
@@ -54,6 +56,9 @@ func validateClientResponse(payload []byte) error {
 		}
 		if err := validateRemoteErrorRaw(&remote, envelope.Error); err != nil {
 			return err
+		}
+		if remote.AssertionIndex != nil && len(payload) >= maxAssertionDiagnosticBytes {
+			return errors.New("assertion diagnostic exceeds its safe bound")
 		}
 	}
 	if envelope.Operation != "watch" {
@@ -463,6 +468,9 @@ func validateRemoteErrorRaw(remote *Error, raw []byte) error {
 	if remote.AssertionIndex != nil && *remote.AssertionIndex < 0 {
 		return errors.New("remote assertion index is invalid")
 	}
+	if remote.AssertionIndex != nil && (len(raw) >= maxAssertionDiagnosticBytes || remote.Key != diagnosticKey(remote.Key)) {
+		return errors.New("remote assertion diagnostic exceeds its safe bound")
+	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil {
 		return err
@@ -514,6 +522,20 @@ func validateRemoteErrorRaw(remote *Error, raw []byte) error {
 		_, hasAssertion := object["assertion_index"]
 		if hasMutation == hasAssertion {
 			return errors.New("condition evidence must identify exactly one mutation or assertion")
+		}
+		if hasAssertion {
+			switch ConditionKind(remote.Condition) {
+			case ConditionAbsent:
+				if _, present := object["expected_revision"]; present {
+					return errors.New("expected_revision is invalid for an absent assertion")
+				}
+			case ConditionRevision:
+				if remote.ExpectedRevision == nil || *remote.ExpectedRevision == 0 {
+					return errors.New("expected_revision must be positive for a revision assertion")
+				}
+			default:
+				return errors.New("assertion condition must be absent or revision")
+			}
 		}
 	}
 	return nil

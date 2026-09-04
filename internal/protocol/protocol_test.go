@@ -471,16 +471,69 @@ func TestAssertionResultAndFailureEvidenceWireContract(t *testing.T) {
 	}
 
 	for name, malformed := range map[string][]byte{
-		"assertion count on put":   []byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"put","result":{"revision":43,"ack":"durable","durable_through_revision":43,"assertion_count":1}}`),
-		"negative assertion index": []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","assertion_index":-1,"condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
-		"both condition indexes":   []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","mutation_index":0,"assertion_index":0,"condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
-		"neither condition index":  []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
+		"assertion count on put":      []byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"put","result":{"revision":43,"ack":"durable","durable_through_revision":43,"assertion_count":1}}`),
+		"negative assertion index":    []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","assertion_index":-1,"condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
+		"both condition indexes":      []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","mutation_index":0,"assertion_index":0,"condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
+		"neither condition index":     []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","condition":"absent","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
+		"assertion any condition":     []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","assertion_index":0,"condition":"any","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
+		"assertion unknown condition": []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","assertion_index":0,"condition":"unchanged","actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
+		"revision without expected":   []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","assertion_index":0,"condition":"revision","actual_revision":2,"safe_actions":["get","rebuild_batch","abort"]}}`),
+		"revision with zero expected": []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","assertion_index":0,"condition":"revision","expected_revision":0,"actual_revision":2,"safe_actions":["get","rebuild_batch","abort"]}}`),
+		"absent with expected":        []byte(`{"schema_version":1,"ok":false,"database_id":"db","operation":"atomic_batch","error":{"code":"CONDITION_FAILED","message":"failed","retry":"after_reconcile","key":"guard","assertion_index":0,"condition":"absent","expected_revision":1,"actual_state":"present","safe_actions":["get","rebuild_batch","abort"]}}`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := DecodeResponse(malformed, gapdb.DefaultMaxFrameBytes); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeInvalidRequest}) {
 				t.Fatalf("DecodeResponse() = %v", err)
 			}
 		})
+	}
+}
+
+func TestAssertionFailureEncodingIsStrictlyBoundedAtMaximumKey(t *testing.T) {
+	t.Parallel()
+
+	key := strings.Repeat("k", gapdb.DefaultOptions().Limits.MaxKeyBytes)
+	index := 0
+	expected, actual := gapdb.Revision(1), gapdb.Revision(2)
+	response := Response{SchemaVersion: 1, DatabaseID: "db", Operation: OperationAtomicBatch, Error: &gapdb.Error{
+		Code: gapdb.CodeConditionFailed, Message: "Atomic batch assertion failed.", Retry: gapdb.RetryAfterReconcile,
+		Key: key, AssertionIndex: &index, Condition: string(gapdb.ConditionRevision), ExpectedRevision: &expected, ActualRevision: &actual,
+		SafeActions: []gapdb.SafeAction{gapdb.ActionGet, gapdb.ActionRebuildBatch, gapdb.ActionAbort},
+	}}
+	encoded, err := EncodeResponse(response)
+	if err != nil {
+		t.Fatalf("EncodeResponse(max-key assertion failure) = %v", err)
+	}
+	if len(encoded) >= 4096 {
+		t.Fatalf("assertion diagnostic length = %d, want <4096", len(encoded))
+	}
+	decoded, err := DecodeResponse(encoded, gapdb.DefaultMaxFrameBytes)
+	if err != nil || decoded.Error == nil || decoded.Error.Key == "" || len(decoded.Error.Key) >= len(key) {
+		t.Fatalf("bounded diagnostic = %#v, %v", decoded.Error, err)
+	}
+	if response.Error.Key != key {
+		t.Fatal("EncodeResponse mutated caller-owned error")
+	}
+
+	boundary := response
+	boundary.Error = response.Error.Clone()
+	boundary.Error.Message = "x"
+	base, err := EncodeResponse(boundary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	messageBytes := 4095 - (len(base) - 1)
+	if messageBytes <= 0 {
+		t.Fatalf("invalid diagnostic test overhead %d", len(base)-1)
+	}
+	boundary.Error.Message = strings.Repeat("x", messageBytes)
+	exact, err := EncodeResponse(boundary)
+	if err != nil || len(exact) != 4095 {
+		t.Fatalf("exact diagnostic boundary length=%d, err=%v", len(exact), err)
+	}
+	boundary.Error.Message += "x"
+	if encoded, err := EncodeResponse(boundary); err == nil || encoded != nil {
+		t.Fatalf("diagnostic boundary+1 accepted length=%d", len(encoded))
 	}
 }
 
