@@ -1,7 +1,7 @@
 {
-  "event_count": 2,
-  "last_event_id": "01M1P5EGREF2HB3WT8R3N5570T",
-  "materialized_at": "2026-09-04T12:14:13.262929+00:00",
+  "event_count": 3,
+  "last_event_id": "01M1P5EK2WC59HP7CXGY2CS6G8",
+  "materialized_at": "2026-09-04T12:14:15.644460+00:00",
   "mission_number": "",
   "mission_slug": "atomic-batch-assertions-01M1P4VH",
   "mission_type": "software-dev",
@@ -14,7 +14,7 @@
     "for_review": 0,
     "in_progress": 0,
     "in_review": 0,
-    "planned": 2
+    "planned": 3
   },
   "work_packages": {
     "WP01": {
@@ -30,6 +30,13 @@
       "lane": "planned",
       "last_event_id": "01M1P5EGREF2HB3WT8R3N5570T",
       "last_transition_at": "2026-09-04T12:14:13.262929+00:00"
+    },
+    "WP03": {
+      "actor": "finalize-tasks",
+      "force_count": 0,
+      "lane": "planned",
+      "last_event_id": "01M1P5EK2WC59HP7CXGY2CS6G8",
+      "last_transition_at": "2026-09-04T12:14:15.644460+00:00"
     }
   }
 }
