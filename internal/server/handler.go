@@ -126,6 +126,38 @@ func (server *Server) dispatch(request protocol.Request) protocol.Response {
 	return response
 }
 
+func (server *Server) handleRecoverySnapshot(conn net.Conn, request protocol.Request) error {
+	arguments, ok := request.Arguments.(protocol.RecoverySnapshotArguments)
+	if !ok {
+		return server.writeFailure(conn, request.Operation, request.RequestID, invalidRequest("arguments", "recovery snapshot request is invalid"))
+	}
+	result, err := server.runtime.State().ReadRecoverySnapshot(gapdb.RecoverySnapshotRequest{
+		Prefix: arguments.Prefix, ExpectedRevision: arguments.ExpectedRevision,
+		MaxRecords: arguments.MaxRecords, MaxBytes: arguments.MaxBytes,
+	})
+	if err != nil {
+		return server.writeFailure(conn, request.Operation, request.RequestID, err)
+	}
+	result.RequestID = request.RequestID
+	payload, err := gapdb.EncodeRecoverySnapshot(result, gapdb.RecoverySnapshotRequest{
+		Prefix: arguments.Prefix, ExpectedRevision: arguments.ExpectedRevision,
+		MaxRecords: arguments.MaxRecords, MaxBytes: arguments.MaxBytes,
+	})
+	if err != nil {
+		return server.writeFailure(conn, request.Operation, request.RequestID, err)
+	}
+	if server.write > 0 {
+		_ = conn.SetWriteDeadline(time.Now().Add(server.write))
+	}
+	if err := faultfs.Checkpoint(server.fs, faultfs.PointResponsePublish, faultfs.Before); err != nil {
+		return err
+	}
+	if err := protocol.WriteRecoveryFrame(conn, payload, gapdb.HardMaxRecoveryBytes); err != nil {
+		return err
+	}
+	return faultfs.Checkpoint(server.fs, faultfs.PointResponsePublish, faultfs.After)
+}
+
 func (server *Server) appliedAdminResultError(err error) error {
 	server.runtime.State().MarkAdminDegraded()
 	var structured *gapdb.Error

@@ -71,3 +71,40 @@ func TestRecoverySnapshotCodecRefusesUnsortedForeignAndOversizedRecords(t *testi
 		t.Fatal("oversized frame passed")
 	}
 }
+
+func TestRecoverySnapshotCodecAdmitsEmptySnapshotAndRefusesExpiredMembership(t *testing.T) {
+	request := RecoverySnapshotRequest{Prefix: "spk/v2/", ExpectedRevision: 9, MaxRecords: 2, MaxBytes: 1024}
+	asOf := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	empty := RecoverySnapshotResult{DatabaseID: "database", RequestID: "request", ObservedRevision: 9, AsOf: asOf}
+	encoded, err := EncodeRecoverySnapshot(empty, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeRecoverySnapshot(encoded, empty.RequestID, request)
+	if err != nil || len(decoded.Records) != 0 {
+		t.Fatalf("empty snapshot = %+v, %v", decoded, err)
+	}
+
+	expires := asOf
+	expired := empty
+	expired.Records = []Record{{Key: "spk/v2/expired", Value: []byte("value"), Revision: 8, ExpiresAt: &expires}}
+	encoded, err = EncodeRecoverySnapshot(expired, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeRecoverySnapshot(encoded, empty.RequestID, request); err == nil {
+		t.Fatal("expired recovery member was admitted")
+	}
+}
+
+func TestRecoverySnapshotCodecAdmitsInitialRevision(t *testing.T) {
+	request := RecoverySnapshotRequest{Prefix: "spk/v2/", MaxRecords: 1, MaxBytes: 1024}
+	result := RecoverySnapshotResult{DatabaseID: "database", RequestID: "request", AsOf: time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)}
+	payload, err := EncodeRecoverySnapshot(result, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeRecoverySnapshot(payload, result.RequestID, request); err != nil {
+		t.Fatal(err)
+	}
+}

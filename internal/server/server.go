@@ -254,6 +254,12 @@ func (server *Server) serveConnection(conn net.Conn) {
 			server.handleWatch(conn, request)
 			return
 		}
+		if request.Operation == protocol.OperationReadRecoverySnapshot {
+			if err := server.handleRecoverySnapshot(conn, request); err != nil {
+				return
+			}
+			continue
+		}
 		response := server.dispatch(request)
 		if err := server.writeResponse(conn, response); err != nil {
 			return

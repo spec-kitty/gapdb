@@ -100,5 +100,52 @@ func TestGetValidatesKey(t *testing.T) {
 	}
 }
 
+func TestReadRecoverySnapshotIsStableSortedBoundedAndCopySafe(t *testing.T) {
+	now := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	manual := clock.NewManual(now)
+	expiredAt := now
+	state := newTestState(t, testConfig{
+		clock: manual,
+		records: []gapdb.Record{
+			gapdb.NewRecord("spk/v2/z", []byte("z"), 9, nil),
+			gapdb.NewRecord("foreign/a", []byte("foreign"), 7, nil),
+			gapdb.NewRecord("spk/v2/a", []byte("a"), 8, nil),
+			gapdb.NewRecord("spk/v2/expired", []byte("expired"), 6, &expiredAt),
+		},
+		current: 9,
+	})
+	t.Cleanup(func() { closeState(t, state) })
+	request := gapdb.RecoverySnapshotRequest{Prefix: "spk/v2/", ExpectedRevision: 9, MaxRecords: 3, MaxBytes: 4096}
+
+	result, err := state.ReadRecoverySnapshot(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ObservedRevision != 9 || !result.AsOf.Equal(now) || len(result.Records) != 2 || result.Records[0].Key != "spk/v2/a" || result.Records[1].Key != "spk/v2/z" {
+		t.Fatalf("snapshot = %+v", result)
+	}
+	result.Records[0].Value[0] = 'X'
+	again, err := state.ReadRecoverySnapshot(request)
+	if err != nil || string(again.Records[0].Value) != "a" {
+		t.Fatalf("copy-safe snapshot = %+v, %v", again, err)
+	}
+
+	stale := request
+	stale.ExpectedRevision--
+	if _, err := state.ReadRecoverySnapshot(stale); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeScanStale}) {
+		t.Fatalf("stale snapshot = %v", err)
+	}
+	tooFew := request
+	tooFew.MaxRecords = 1
+	if _, err := state.ReadRecoverySnapshot(tooFew); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeFrameTooLarge}) {
+		t.Fatalf("record bound = %v", err)
+	}
+	tooSmall := request
+	tooSmall.MaxBytes = 80
+	if _, err := state.ReadRecoverySnapshot(tooSmall); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeFrameTooLarge}) {
+		t.Fatalf("byte bound = %v", err)
+	}
+}
+
 // Compile-time coverage that the production WAL satisfies the engine seam.
 var _ CommitLog = (*persist.WAL)(nil)

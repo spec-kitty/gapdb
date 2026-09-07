@@ -48,12 +48,9 @@ func (r RecoverySnapshotResult) Clone() RecoverySnapshotResult {
 	return clone
 }
 
-func validateRecoverySnapshotRequest(request RecoverySnapshotRequest, limits Limits) error {
+func ValidateRecoverySnapshotRequest(request RecoverySnapshotRequest, limits Limits) error {
 	if request.Prefix == "" || len(request.Prefix) > limits.MaxKeyBytes {
 		return invalidField("prefix", "must be a bounded non-empty key prefix")
-	}
-	if request.ExpectedRevision == 0 {
-		return invalidField("expected_revision", "must be greater than zero")
 	}
 	if request.MaxRecords <= 0 || request.MaxRecords > HardMaxRecoveryRecords {
 		return invalidField("max_records", "exceeds the recovery record bound")
@@ -68,7 +65,7 @@ func validateRecoverySnapshotRequest(request RecoverySnapshotRequest, limits Lim
 // connection. The ordinary JSON protocol remains the request and error
 // authority; only the successful record body uses the compact codec.
 func (c *Client) ReadRecoverySnapshot(ctx context.Context, request RecoverySnapshotRequest) (RecoverySnapshotResult, error) {
-	if err := validateRecoverySnapshotRequest(request, c.limits); err != nil {
+	if err := ValidateRecoverySnapshotRequest(request, c.limits); err != nil {
 		return RecoverySnapshotResult{}, err
 	}
 	if ctx == nil {
@@ -196,7 +193,7 @@ func DecodeRecoverySnapshot(payload []byte, expectedRequestID string, request Re
 	var revision uint64
 	var asOfNS int64
 	var count uint32
-	if binary.Read(reader, binary.BigEndian, &revision) != nil || binary.Read(reader, binary.BigEndian, &asOfNS) != nil || binary.Read(reader, binary.BigEndian, &count) != nil || revision != uint64(request.ExpectedRevision) || count == 0 || int(count) > request.MaxRecords {
+	if binary.Read(reader, binary.BigEndian, &revision) != nil || binary.Read(reader, binary.BigEndian, &asOfNS) != nil || binary.Read(reader, binary.BigEndian, &count) != nil || revision != uint64(request.ExpectedRevision) || int(count) > request.MaxRecords {
 		return RecoverySnapshotResult{}, errors.New("recovery snapshot header is malformed")
 	}
 	result := RecoverySnapshotResult{DatabaseID: databaseID, RequestID: requestID, ObservedRevision: Revision(revision), AsOf: time.Unix(0, asOfNS).UTC(), Records: make([]Record, int(count))}
@@ -220,6 +217,9 @@ func DecodeRecoverySnapshot(payload []byte, expectedRequestID string, request Re
 		record := Record{Key: key, Value: value, Revision: Revision(recordRevision)}
 		if expiresNS >= 0 {
 			expires := time.Unix(0, expiresNS).UTC()
+			if !expires.After(result.AsOf) {
+				return RecoverySnapshotResult{}, errors.New("recovery snapshot contains an expired record")
+			}
 			record.ExpiresAt = &expires
 		}
 		result.Records[index] = record

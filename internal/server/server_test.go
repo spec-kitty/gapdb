@@ -54,6 +54,48 @@ func TestOpenServesPublicClientAndOwnsSocket(t *testing.T) {
 	}
 }
 
+func TestRecoverySnapshotUsesBinarySuccessAndStructuredStaleFailure(t *testing.T) {
+	dir := t.TempDir()
+	srv, err := server.Open(server.Config{Directory: dir, Options: gapdb.DefaultOptions(), ToolVersion: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = srv.Close(context.Background()) })
+	client, err := gapdb.Dial(srv.SocketPath(), gapdb.ClientOptions{Timeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	first, err := client.Put(t.Context(), "spk/v2/z", []byte("z"), nil, gapdb.AckDurable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := client.Put(t.Context(), "spk/v2/a", []byte("a"), nil, gapdb.AckDurable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Put(t.Context(), "foreign", []byte("foreign"), nil, gapdb.AckDurable); err != nil {
+		t.Fatal(err)
+	}
+	status, err := client.Status(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := gapdb.RecoverySnapshotRequest{Prefix: "spk/v2/", ExpectedRevision: status.CurrentRevision, MaxRecords: 2, MaxBytes: 4096}
+	result, err := client.ReadRecoverySnapshot(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.DatabaseID != status.DatabaseID || result.ObservedRevision != status.CurrentRevision || len(result.Records) != 2 || result.Records[0].Key != "spk/v2/a" || result.Records[0].Revision != second.Revision || result.Records[1].Key != "spk/v2/z" || result.Records[1].Revision != first.Revision {
+		t.Fatalf("snapshot = %+v", result)
+	}
+
+	request.ExpectedRevision--
+	if _, err := client.ReadRecoverySnapshot(t.Context(), request); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeScanStale}) {
+		t.Fatalf("stale snapshot = %v", err)
+	}
+}
+
 func TestReusableUnaryCorrelatesConcurrentRequests(t *testing.T) {
 	dir := t.TempDir()
 	srv, err := server.Open(server.Config{Directory: dir, Options: gapdb.DefaultOptions(), ToolVersion: "test"})

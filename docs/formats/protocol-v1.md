@@ -35,7 +35,7 @@ The exact v1 operations are:
 
 | Class | Operations |
 |---|---|
-| Data | `get`, `get_many`, `put`, `put_if_absent`, `compare_and_swap`, `delete_if_revision`, `atomic_batch`, `scan_prefix`, `watch` |
+| Data | `get`, `get_many`, `read_recovery_snapshot`, `put`, `put_if_absent`, `compare_and_swap`, `delete_if_revision`, `atomic_batch`, `scan_prefix`, `watch` |
 | Inspection | `status`, `health`, `stats`, `describe_config`, `verify` |
 | Guarded online admin | `create_snapshot`, `compact`, `backup` |
 | Offline CLI envelopes | `offline_inspect`, `offline_verify`, `offline_recover_propose`, `offline_recover_apply` |
@@ -54,6 +54,14 @@ entry carries `found`; a found entry carries a matching record, while an absent
 entry omits it. Record revisions cannot exceed the observed revision, and
 records expired at `as_of` cannot be returned. Request bytes, entry count, and
 the fully encoded response are bounded before publication.
+`read_recovery_snapshot` is a read-only stable-revision export for bounded
+recovery engines. Its request and all failures use the canonical JSON envelope;
+success uses the frozen `GDBREC1` length-prefixed binary body so record values
+cross the owner boundary once without base64 expansion. The body binds database
+ID, request ID, observed revision, `as_of`, sorted prefix membership, record
+revisions and expiry, plus a trailing SHA-256 digest. The operation is limited
+to 200,000 records and 256 MiB, returns no partial result, and never exposes a
+storage handle or relaxes caller-side semantic validation.
 `scan_prefix` returns byte-sorted bounded records, `observed_revision`, `as_of`,
 `truncated`, and an opaque cursor. A later commit invalidates continuation with
 `SCAN_STALE`. Watch resume is exclusive of `after_revision`; backlog and live
@@ -126,6 +134,7 @@ The Go client always traverses the socket:
 client, err := gapdb.Dial("/srv/gapdb/gapdb.sock", gapdb.ClientOptions{Timeout: 5*time.Second})
 record, err := client.Get(ctx, "leases/integration")
 records, err := client.ReadMany(ctx, []string{"leases/integration", "workflow/42"})
+snapshot, err := client.ReadRecoverySnapshot(ctx, gapdb.RecoverySnapshotRequest{Prefix: "workflow/", ExpectedRevision: status.CurrentRevision, MaxRecords: 200_000, MaxBytes: gapdb.HardMaxRecoveryBytes})
 put, err := client.Put(ctx, "workflow/42", value, nil, gapdb.AckMemory)
 winner, err := client.PutIfAbsent(ctx, "leases/integration", owner, &expiry, gapdb.AckDurable)
 replaced, err := client.CompareAndSwap(ctx, "workflow/42", put.Revision, next, nil, gapdb.AckDurable)

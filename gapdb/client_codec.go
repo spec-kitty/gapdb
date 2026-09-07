@@ -415,7 +415,7 @@ func validateClientEvent(raw []byte) error {
 
 func clientOperation(operation string) bool {
 	switch operation {
-	case "get", "get_many", "put", "put_if_absent", "compare_and_swap", "delete_if_revision", "atomic_batch", "scan_prefix", "watch", "status", "health", "stats", "describe_config", "verify", "create_snapshot", "compact", "backup", "offline_inspect", "offline_verify", "offline_recover_propose", "offline_recover_apply":
+	case "get", "get_many", "read_recovery_snapshot", "put", "put_if_absent", "compare_and_swap", "delete_if_revision", "atomic_batch", "scan_prefix", "watch", "status", "health", "stats", "describe_config", "verify", "create_snapshot", "compact", "backup", "offline_inspect", "offline_verify", "offline_recover_propose", "offline_recover_apply":
 		return true
 	default:
 		return false

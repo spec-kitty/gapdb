@@ -3,14 +3,17 @@ package protocol_test
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spec-kitty/gapdb/gapdb"
 	wire "github.com/spec-kitty/gapdb/internal/protocol"
@@ -66,6 +69,7 @@ func TestEveryOnlineOperationHasFrozenRequestAndSuccessAuthority(t *testing.T) {
 		}
 		successes[response.Operation] = true
 	})
+	successes[wire.OperationReadRecoverySnapshot] = recoverySnapshotGolden(t)
 	for _, operation := range operations {
 		if !operation.Valid() {
 			t.Fatalf("frozen operation %q is not valid", operation)
@@ -77,6 +81,32 @@ func TestEveryOnlineOperationHasFrozenRequestAndSuccessAuthority(t *testing.T) {
 			t.Errorf("operation %q has no canonical success fixture", operation)
 		}
 	}
+}
+
+func recoverySnapshotGolden(t *testing.T) bool {
+	t.Helper()
+	request := gapdb.RecoverySnapshotRequest{Prefix: "workflows/", ExpectedRevision: 102, MaxRecords: 1000, MaxBytes: gapdb.HardMaxRecoveryBytes}
+	expires := time.Date(2026, 8, 23, 18, 30, 0, 0, time.UTC)
+	payload, err := gapdb.EncodeRecoverySnapshot(gapdb.RecoverySnapshotResult{
+		DatabaseID:       "0198f4d4f26a7b1ca3df00c30ca93e73",
+		RequestID:        "req-recovery",
+		ObservedRevision: 102,
+		AsOf:             time.Date(2026, 8, 23, 18, 0, 0, 0, time.UTC),
+		Records:          []gapdb.Record{{Key: "workflows/123", Value: []byte{1, 2, 3}, Revision: 45, ExpiresAt: &expires}},
+	}, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprintf("%x", sha256.Sum256(payload))
+	const want = "c4c3dad38f6b9a79db2d65d35678685b8639c0ee422c5e675652a7acc9a942a8"
+	if got != want {
+		t.Fatalf("recovery binary golden digest = %s, want %s", got, want)
+	}
+	decoded, err := gapdb.DecodeRecoverySnapshot(payload, "req-recovery", request)
+	if err != nil || len(decoded.Records) != 1 || decoded.Records[0].Key != "workflows/123" {
+		t.Fatalf("recovery binary golden decode = %+v, %v", decoded, err)
+	}
+	return true
 }
 
 func TestEveryStableErrorHasGoldenFixture(t *testing.T) {
