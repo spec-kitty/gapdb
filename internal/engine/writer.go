@@ -222,7 +222,9 @@ func (state *DatabaseState) execute(batch gapdb.Batch, single singleOperation, p
 	for index, mutation := range batch.Mutations {
 		events[index] = state.apply(revision, uint32(index), mutation, single)
 	}
-	state.orderedKeys = nextOrderedKeys
+	if nextOrderedKeys != nil {
+		state.orderedKeys = nextOrderedKeys
+	}
 	state.current = revision
 	if durableThrough > state.durableThrough {
 		state.durableThrough = durableThrough
@@ -416,6 +418,19 @@ func (state *DatabaseState) apply(revision gapdb.Revision, order uint32, mutatio
 
 func (state *DatabaseState) planOrderedKeys(mutations []gapdb.Mutation) []string {
 	state.mu.RLock()
+	changed := false
+	for _, mutation := range mutations {
+		index := sort.SearchStrings(state.orderedKeys, mutation.Key)
+		exists := index < len(state.orderedKeys) && state.orderedKeys[index] == mutation.Key
+		if (mutation.Kind == gapdb.MutationDelete && exists) || (mutation.Kind == gapdb.MutationPut && !exists) {
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		state.mu.RUnlock()
+		return nil
+	}
 	base := append([]string(nil), state.orderedKeys...)
 	state.mu.RUnlock()
 	return mergeOrderedKeyDelta(base, mutations)

@@ -135,6 +135,31 @@ func TestOrderedKeyDeltaLargeAdversarialBatchIsBounded(t *testing.T) {
 	}
 }
 
+func TestOverwriteOnlyBatchDoesNotCopyOrReplaceOrderedIndex(t *testing.T) {
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	records := make([]gapdb.Record, 100_000)
+	for index := range records {
+		records[index] = gapdb.NewRecord(fmt.Sprintf("m/%06d", index), nil, 1, nil)
+	}
+	state, _ := newObservationState(t, clock.NewManual(now), newManualExpiryTimer(), gapdb.Limits{}, records, 1)
+	t.Cleanup(func() { closeState(t, state) })
+	before := &state.orderedKeys[0]
+	mutations := make([]gapdb.Mutation, 128)
+	for index := range mutations {
+		mutations[index] = gapdb.NewPutMutation(fmt.Sprintf("m/%06d", index*500), []byte("updated"), gapdb.Condition{Kind: gapdb.ConditionAny}, nil)
+	}
+	started := time.Now()
+	if _, err := state.AtomicBatch(t.Context(), gapdb.Batch{Ack: gapdb.AckMemory, Mutations: mutations}); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed > 250*time.Millisecond {
+		t.Fatalf("128-key overwrite acknowledgement took %s", elapsed)
+	}
+	if before != &state.orderedKeys[0] {
+		t.Fatal("overwrite-only batch replaced the ordered membership index")
+	}
+}
+
 func TestLargeDescendingMembershipBatchesStayWithinAcknowledgementBudget(t *testing.T) {
 	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
 	records := make([]gapdb.Record, 100_000)
