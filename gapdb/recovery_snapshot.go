@@ -9,7 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -49,7 +52,7 @@ func (r RecoverySnapshotResult) Clone() RecoverySnapshotResult {
 }
 
 func ValidateRecoverySnapshotRequest(request RecoverySnapshotRequest, limits Limits) error {
-	if request.Prefix == "" || len(request.Prefix) > limits.MaxKeyBytes {
+	if request.Prefix == "" || len(request.Prefix) > limits.MaxKeyBytes || !utf8.ValidString(request.Prefix) {
 		return invalidField("prefix", "must be a bounded non-empty key prefix")
 	}
 	if request.MaxRecords <= 0 || request.MaxRecords > HardMaxRecoveryRecords {
@@ -81,7 +84,7 @@ func (c *Client) ReadRecoverySnapshot(ctx context.Context, request RecoverySnaps
 		return RecoverySnapshotResult{}, err
 	}
 	c.applyDeadline(ctx, conn)
-	payload, err := readClientFrame(conn, HardMaxRecoveryBytes)
+	payload, err := readClientFrame(conn, request.MaxBytes)
 	if err != nil {
 		return RecoverySnapshotResult{}, &TransportError{Operation: req.Operation, SocketPath: c.socketPath, Ambiguous: true, Cause: err}
 	}
@@ -113,14 +116,21 @@ func (c *Client) decodeRecoverySnapshotFailure(payload []byte, request wireReque
 
 // EncodeRecoverySnapshot emits the canonical bounded success frame.
 func EncodeRecoverySnapshot(result RecoverySnapshotResult, request RecoverySnapshotRequest) ([]byte, error) {
-	if result.DatabaseID == "" || result.RequestID == "" || result.ObservedRevision != request.ExpectedRevision || result.AsOf.IsZero() || len(result.Records) > request.MaxRecords {
+	if err := ValidateRecoverySnapshotRequest(request, Limits{MaxKeyBytes: HardMaxKeyBytes}); err != nil {
+		return nil, err
+	}
+	if result.DatabaseID == "" || result.RequestID == "" || result.ObservedRevision != request.ExpectedRevision || result.AsOf.IsZero() || len(result.Records) > request.MaxRecords || uint64(len(result.Records)) > math.MaxUint32 {
 		return nil, errors.New("recovery snapshot identity is incomplete")
+	}
+	asOfNS, ok := recoveryTimeNanoseconds(result.AsOf)
+	if !ok {
+		return nil, errors.New("recovery snapshot time is unrepresentable")
 	}
 	var payload bytes.Buffer
 	payload.Grow(min(request.MaxBytes, 4<<20))
 	payload.Write(recoverySnapshotMagic[:])
 	writeUint16 := func(value string) error {
-		if value == "" || len(value) > 65535 {
+		if value == "" || len(value) > math.MaxUint16 || !utf8.ValidString(value) {
 			return errors.New("recovery snapshot identity is unbounded")
 		}
 		_ = binary.Write(&payload, binary.BigEndian, uint16(len(value)))
@@ -134,26 +144,33 @@ func EncodeRecoverySnapshot(result RecoverySnapshotResult, request RecoverySnaps
 		return nil, err
 	}
 	_ = binary.Write(&payload, binary.BigEndian, uint64(result.ObservedRevision))
-	_ = binary.Write(&payload, binary.BigEndian, result.AsOf.UTC().UnixNano())
+	_ = binary.Write(&payload, binary.BigEndian, asOfNS)
 	_ = binary.Write(&payload, binary.BigEndian, uint32(len(result.Records)))
+	if payload.Len()+sha256.Size > request.MaxBytes {
+		return nil, recoverySnapshotTooLarge(payload.Len()+sha256.Size, request.MaxBytes)
+	}
 	previous := ""
 	for _, record := range result.Records {
-		if record.Key == "" || len(record.Key) > 65535 || record.Key <= previous || !bytes.HasPrefix([]byte(record.Key), []byte(request.Prefix)) || record.Revision == 0 || record.Revision > result.ObservedRevision || len(record.Value) > request.MaxBytes {
+		if record.Key == "" || len(record.Key) > HardMaxKeyBytes || !utf8.ValidString(record.Key) || record.Key <= previous || !strings.HasPrefix(record.Key, request.Prefix) || record.Revision == 0 || record.Revision > result.ObservedRevision || len(record.Value) > request.MaxBytes || uint64(len(record.Value)) > math.MaxUint32 {
 			return nil, errors.New("recovery snapshot record is invalid")
 		}
 		previous = record.Key
-		_ = binary.Write(&payload, binary.BigEndian, uint16(len(record.Key)))
+		_ = binary.Write(&payload, binary.BigEndian, uint32(len(record.Key)))
 		payload.WriteString(record.Key)
 		_ = binary.Write(&payload, binary.BigEndian, uint64(record.Revision))
 		expires := int64(-1)
 		if record.ExpiresAt != nil {
-			expires = record.ExpiresAt.UTC().UnixNano()
+			var representable bool
+			expires, representable = recoveryTimeNanoseconds(*record.ExpiresAt)
+			if !representable || expires < 0 || !record.ExpiresAt.After(result.AsOf) {
+				return nil, errors.New("recovery snapshot expiry is invalid")
+			}
 		}
 		_ = binary.Write(&payload, binary.BigEndian, expires)
 		_ = binary.Write(&payload, binary.BigEndian, uint32(len(record.Value)))
 		payload.Write(record.Value)
 		if payload.Len()+sha256.Size > request.MaxBytes {
-			return nil, &Error{Code: CodeFrameTooLarge, Message: "Recovery snapshot exceeds the requested byte limit.", Retry: RetryNever, ReceivedBytes: payload.Len() + sha256.Size, MaximumBytes: request.MaxBytes, SafeActions: []SafeAction{ActionReduceRequest, ActionAbort}}
+			return nil, recoverySnapshotTooLarge(payload.Len()+sha256.Size, request.MaxBytes)
 		}
 	}
 	digest := sha256.Sum256(payload.Bytes())
@@ -170,6 +187,9 @@ func DecodeRecoverySnapshot(payload []byte, expectedRequestID string, request Re
 // The public decoder retains its defensive-copy contract for caller-owned
 // input, while the client avoids copying the full validated snapshot again.
 func decodeRecoverySnapshot(payload []byte, expectedRequestID string, request RecoverySnapshotRequest, takeOwnership bool) (RecoverySnapshotResult, error) {
+	if err := ValidateRecoverySnapshotRequest(request, Limits{MaxKeyBytes: HardMaxKeyBytes}); err != nil {
+		return RecoverySnapshotResult{}, err
+	}
 	if len(payload) < len(recoverySnapshotMagic)+sha256.Size || len(payload) > request.MaxBytes || !bytes.Equal(payload[:8], recoverySnapshotMagic[:]) {
 		return RecoverySnapshotResult{}, errors.New("recovery snapshot frame is invalid")
 	}
@@ -179,7 +199,7 @@ func decodeRecoverySnapshot(payload []byte, expectedRequestID string, request Re
 	}
 	body := payload[8 : len(payload)-sha256.Size]
 	reader := bytes.NewReader(body)
-	readString := func() (string, error) {
+	readIdentity := func() (string, error) {
 		var size uint16
 		if err := binary.Read(reader, binary.BigEndian, &size); err != nil || size == 0 {
 			return "", errors.New("recovery snapshot identity is malformed")
@@ -188,41 +208,52 @@ func decodeRecoverySnapshot(payload []byte, expectedRequestID string, request Re
 		if _, err := io.ReadFull(reader, value); err != nil {
 			return "", err
 		}
+		if !utf8.Valid(value) {
+			return "", errors.New("recovery snapshot identity is not UTF-8")
+		}
 		return string(value), nil
 	}
-	databaseID, err := readString()
+	databaseID, err := readIdentity()
 	if err != nil {
 		return RecoverySnapshotResult{}, err
 	}
-	requestID, err := readString()
+	requestID, err := readIdentity()
 	if err != nil || requestID != expectedRequestID {
 		return RecoverySnapshotResult{}, errors.New("recovery snapshot request identity differs")
 	}
 	var revision uint64
 	var asOfNS int64
 	var count uint32
-	if binary.Read(reader, binary.BigEndian, &revision) != nil || binary.Read(reader, binary.BigEndian, &asOfNS) != nil || binary.Read(reader, binary.BigEndian, &count) != nil || revision != uint64(request.ExpectedRevision) || int(count) > request.MaxRecords {
+	if binary.Read(reader, binary.BigEndian, &revision) != nil || binary.Read(reader, binary.BigEndian, &asOfNS) != nil || binary.Read(reader, binary.BigEndian, &count) != nil || revision != uint64(request.ExpectedRevision) || uint64(count) > uint64(request.MaxRecords) || uint64(count) > uint64(maxInt()) {
 		return RecoverySnapshotResult{}, errors.New("recovery snapshot header is malformed")
 	}
 	result := RecoverySnapshotResult{DatabaseID: databaseID, RequestID: requestID, ObservedRevision: Revision(revision), AsOf: time.Unix(0, asOfNS).UTC(), Records: make([]Record, int(count))}
 	previous := ""
 	for index := range result.Records {
-		key, err := readString()
+		var keySize uint32
+		if binary.Read(reader, binary.BigEndian, &keySize) != nil || keySize == 0 || uint64(keySize) > uint64(HardMaxKeyBytes) || uint64(keySize) > uint64(reader.Len()) || uint64(keySize) > uint64(maxInt()) {
+			return RecoverySnapshotResult{}, errors.New("recovery snapshot key is malformed")
+		}
+		keyBytes := make([]byte, int(keySize))
+		if _, err := io.ReadFull(reader, keyBytes); err != nil || !utf8.Valid(keyBytes) {
+			return RecoverySnapshotResult{}, errors.New("recovery snapshot key is malformed")
+		}
+		key := string(keyBytes)
 		var recordRevision uint64
 		var expiresNS int64
 		var valueSize uint32
-		if err != nil || binary.Read(reader, binary.BigEndian, &recordRevision) != nil || binary.Read(reader, binary.BigEndian, &expiresNS) != nil || binary.Read(reader, binary.BigEndian, &valueSize) != nil || int(valueSize) > reader.Len() {
+		if binary.Read(reader, binary.BigEndian, &recordRevision) != nil || binary.Read(reader, binary.BigEndian, &expiresNS) != nil || binary.Read(reader, binary.BigEndian, &valueSize) != nil || uint64(valueSize) > uint64(reader.Len()) || uint64(valueSize) > uint64(maxInt()) {
 			return RecoverySnapshotResult{}, errors.New("recovery snapshot record is truncated")
 		}
 		valueOffset := len(body) - reader.Len()
-		value := body[valueOffset : valueOffset+int(valueSize)]
+		value := body[valueOffset : valueOffset+int(valueSize) : valueOffset+int(valueSize)]
 		if _, err := reader.Seek(int64(valueSize), io.SeekCurrent); err != nil {
 			return RecoverySnapshotResult{}, err
 		}
 		if !takeOwnership {
 			value = bytes.Clone(value)
 		}
-		if key <= previous || !bytes.HasPrefix([]byte(key), []byte(request.Prefix)) || recordRevision == 0 || recordRevision > revision {
+		if key <= previous || !strings.HasPrefix(key, request.Prefix) || recordRevision == 0 || recordRevision > revision {
 			return RecoverySnapshotResult{}, errors.New("recovery snapshot membership is invalid")
 		}
 		previous = key
@@ -241,3 +272,14 @@ func decodeRecoverySnapshot(payload []byte, expectedRequestID string, request Re
 	}
 	return result, nil
 }
+
+func recoverySnapshotTooLarge(received, maximum int) error {
+	return &Error{Code: CodeFrameTooLarge, Message: "Recovery snapshot exceeds the requested byte limit.", Retry: RetryNever, ReceivedBytes: received, MaximumBytes: maximum, SafeActions: []SafeAction{ActionReduceRequest, ActionAbort}}
+}
+
+func recoveryTimeNanoseconds(value time.Time) (int64, bool) {
+	nanoseconds := value.UTC().UnixNano()
+	return nanoseconds, time.Unix(0, nanoseconds).UTC().Equal(value.UTC())
+}
+
+func maxInt() int { return int(^uint(0) >> 1) }

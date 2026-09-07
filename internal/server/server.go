@@ -47,6 +47,7 @@ type Server struct {
 	write      time.Duration
 	idle       time.Duration
 	clients    chan struct{}
+	recovery   chan struct{}
 	shutdown   chan struct{}
 	draining   atomic.Bool
 	manifest   atomic.Uint64
@@ -157,7 +158,7 @@ func Open(config Config) (*Server, error) {
 		_ = socketDir.removeSocket(socketName)
 		return fail(permissionError(config.SocketPath, "verify_mode", err))
 	}
-	server := &Server{directory: config.Directory, socket: config.SocketPath, limits: config.Options.Limits, runtime: opened.runtime, wal: opened.wal, fs: config.FS, listener: listener, socketDir: socketDir, socketName: socketName, read: config.ReadTimeout, write: config.WriteTimeout, idle: config.IdleTimeout, clients: make(chan struct{}, config.Options.Limits.MaxConcurrentClients), shutdown: make(chan struct{}), conns: make(map[net.Conn]struct{}), closeDone: make(chan struct{}), startedAt: time.Now().UTC()}
+	server := &Server{directory: config.Directory, socket: config.SocketPath, limits: config.Options.Limits, runtime: opened.runtime, wal: opened.wal, fs: config.FS, listener: listener, socketDir: socketDir, socketName: socketName, read: config.ReadTimeout, write: config.WriteTimeout, idle: config.IdleTimeout, clients: make(chan struct{}, config.Options.Limits.MaxConcurrentClients), recovery: make(chan struct{}, 1), shutdown: make(chan struct{}), conns: make(map[net.Conn]struct{}), closeDone: make(chan struct{}), startedAt: time.Now().UTC()}
 	server.manifest.Store(opened.manifestGeneration)
 	server.wg.Add(1)
 	go server.accept()
@@ -255,7 +256,15 @@ func (server *Server) serveConnection(conn net.Conn) {
 			return
 		}
 		if request.Operation == protocol.OperationReadRecoverySnapshot {
-			if err := server.handleRecoverySnapshot(conn, request); err != nil {
+			if !server.acquireRecoverySnapshot() {
+				_ = server.writeFailure(conn, request.Operation, request.RequestID, &gapdb.Error{Code: gapdb.CodeServerBusy, Message: "The bounded recovery snapshot slot is active.", Retry: gapdb.RetryImmediate, SafeActions: []gapdb.SafeAction{gapdb.ActionRetryWithBackoff, gapdb.ActionAbort}})
+				continue
+			}
+			err := func() error {
+				defer server.releaseRecoverySnapshot()
+				return server.handleRecoverySnapshot(conn, request)
+			}()
+			if err != nil {
 				return
 			}
 			continue
@@ -266,6 +275,17 @@ func (server *Server) serveConnection(conn net.Conn) {
 		}
 	}
 }
+
+func (server *Server) acquireRecoverySnapshot() bool {
+	select {
+	case server.recovery <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (server *Server) releaseRecoverySnapshot() { <-server.recovery }
 
 func (server *Server) track(conn net.Conn, add bool) {
 	server.mu.Lock()

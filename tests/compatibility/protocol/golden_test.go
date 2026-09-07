@@ -69,10 +69,15 @@ func TestEveryOnlineOperationHasFrozenRequestAndSuccessAuthority(t *testing.T) {
 		}
 		successes[response.Operation] = true
 	})
-	successes[wire.OperationReadRecoverySnapshot] = recoverySnapshotGolden(t)
 	for _, operation := range operations {
 		if !operation.Valid() {
 			t.Fatalf("frozen operation %q is not valid", operation)
+		}
+		if operation == wire.OperationReadRecoverySnapshot {
+			if requests[operation] || successes[operation] {
+				t.Fatal("candidate recovery extension was folded into adopted protocol-v1 goldens")
+			}
+			continue
 		}
 		if !requests[operation] {
 			t.Errorf("operation %q has no canonical request fixture", operation)
@@ -80,6 +85,20 @@ func TestEveryOnlineOperationHasFrozenRequestAndSuccessAuthority(t *testing.T) {
 		if !successes[operation] {
 			t.Errorf("operation %q has no canonical success fixture", operation)
 		}
+	}
+}
+
+func TestRecoverySnapshotCandidateExtensionHasIndependentRequestAndSuccessGolden(t *testing.T) {
+	encoded, err := os.ReadFile(filepath.Join("testdata", "recovery-snapshot-extension-v1.request.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := wire.DecodeRequest(encoded, gapdb.DefaultOptions().Limits)
+	if err != nil || request.Operation != wire.OperationReadRecoverySnapshot {
+		t.Fatalf("candidate extension request=%+v err=%v", request, err)
+	}
+	if !recoverySnapshotGolden(t) {
+		t.Fatal("candidate extension success golden is absent")
 	}
 }
 
@@ -98,7 +117,7 @@ func recoverySnapshotGolden(t *testing.T) bool {
 		t.Fatal(err)
 	}
 	got := fmt.Sprintf("%x", sha256.Sum256(payload))
-	const want = "c4c3dad38f6b9a79db2d65d35678685b8639c0ee422c5e675652a7acc9a942a8"
+	const want = "3970dd41fcb1a3ade7147d8ef6fcbcca1279a9e5ff42c6ebf30fc019874438b4"
 	if got != want {
 		t.Fatalf("recovery binary golden digest = %s, want %s", got, want)
 	}
@@ -107,6 +126,29 @@ func recoverySnapshotGolden(t *testing.T) bool {
 		t.Fatalf("recovery binary golden decode = %+v, %v", decoded, err)
 	}
 	return true
+}
+
+func TestRecoverySnapshotCandidateExtensionIsSeparateFromFrozenProtocolV1(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	frozen, err := os.ReadFile(filepath.Join(root, "docs/formats/protocol-v1.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(frozen)); got != "68c9b7f52714620d649c6e47b7c56bda10318b697ccbb5bfb88d58f01a9fd9a2" {
+		t.Fatalf("adopted protocol-v1 authority changed: %s", got)
+	}
+	extension, err := os.ReadFile(filepath.Join(root, "docs/formats/recovery-snapshot-extension-v1.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, token := range []string{"technical candidate extension", "does not amend", "read_recovery_snapshot", "GDBREC1", "one recovery snapshot construction at a time", "cannot reslice or append into an adjacent record"} {
+		if !bytes.Contains(extension, []byte(token)) {
+			t.Fatalf("candidate extension authority token %q is absent", token)
+		}
+	}
 }
 
 func TestEveryStableErrorHasGoldenFixture(t *testing.T) {

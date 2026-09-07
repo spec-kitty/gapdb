@@ -1,6 +1,5 @@
 {"schema_version":1,"request_id":"req-get","operation":"get","arguments":{"key":"workflows/123"}}
 {"schema_version":1,"request_id":"req-get-many","operation":"get_many","arguments":{"keys":["missing","workflows/123"]}}
-{"schema_version":1,"request_id":"req-recovery","operation":"read_recovery_snapshot","arguments":{"prefix":"workflows/","expected_revision":102,"max_records":1000,"max_bytes":268435456}}
 {"schema_version":1,"request_id":"req-put","operation":"put","arguments":{"key":"workflows/123","value_base64":"AQID","expires_at":"2026-08-23T18:30:00Z","ack":"durable"}}
 {"schema_version":1,"operation":"put_if_absent","arguments":{"key":"leases/new","value_base64":"","ack":"memory"}}
 {"schema_version":1,"operation":"compare_and_swap","arguments":{"key":"workflows/123","expected_revision":45,"value_base64":"BAUG","ack":"durable"}}

@@ -254,7 +254,7 @@ func (state *DatabaseState) ReadRecoverySnapshot(request gapdb.RecoverySnapshotR
 		if !exists || recordExpired(record, asOf) {
 			continue
 		}
-		bytesUsed += 2 + len(record.Key) + 8 + 8 + 4 + len(record.Value)
+		bytesUsed += 4 + len(record.Key) + 8 + 8 + 4 + len(record.Value)
 		if len(records) == request.MaxRecords || bytesUsed > request.MaxBytes {
 			return gapdb.RecoverySnapshotResult{}, &gapdb.Error{Code: gapdb.CodeFrameTooLarge, Message: "Recovery snapshot exceeds its declared bound.", Retry: gapdb.RetryNever, ReceivedBytes: bytesUsed, MaximumBytes: request.MaxBytes, SafeActions: []gapdb.SafeAction{gapdb.ActionReduceRequest, gapdb.ActionAbort}}
 		}

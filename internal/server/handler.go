@@ -152,7 +152,7 @@ func (server *Server) handleRecoverySnapshot(conn net.Conn, request protocol.Req
 	if err := faultfs.Checkpoint(server.fs, faultfs.PointResponsePublish, faultfs.Before); err != nil {
 		return err
 	}
-	if err := protocol.WriteRecoveryFrame(conn, payload, gapdb.HardMaxRecoveryBytes); err != nil {
+	if err := protocol.WriteRecoveryFrame(conn, payload, arguments.MaxBytes); err != nil {
 		return err
 	}
 	return faultfs.Checkpoint(server.fs, faultfs.PointResponsePublish, faultfs.After)

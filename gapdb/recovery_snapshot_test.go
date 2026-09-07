@@ -2,6 +2,9 @@ package gapdb
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"strings"
 	"testing"
 	"time"
 )
@@ -97,12 +100,14 @@ func TestRecoverySnapshotCodecAdmitsEmptySnapshotAndRefusesExpiredMembership(t *
 	expires := asOf
 	expired := empty
 	expired.Records = []Record{{Key: "spk/v2/expired", Value: []byte("value"), Revision: 8, ExpiresAt: &expires}}
-	encoded, err = EncodeRecoverySnapshot(expired, request)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := EncodeRecoverySnapshot(expired, request); err == nil {
+		t.Fatal("encoder admitted a record already expired at observation time")
 	}
-	if _, err := DecodeRecoverySnapshot(encoded, empty.RequestID, request); err == nil {
-		t.Fatal("expired recovery member was admitted")
+
+	tiny := request
+	tiny.MaxBytes = 32
+	if _, err := EncodeRecoverySnapshot(empty, tiny); err == nil {
+		t.Fatal("empty snapshot header escaped the complete-frame byte budget")
 	}
 }
 
@@ -116,4 +121,103 @@ func TestRecoverySnapshotCodecAdmitsInitialRevision(t *testing.T) {
 	if _, err := DecodeRecoverySnapshot(payload, result.RequestID, request); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestRecoverySnapshotCodecSupportsHardKeyBoundAndRejectsInvalidUTF8(t *testing.T) {
+	prefix := strings.Repeat("k", HardMaxKeyBytes-1)
+	request := RecoverySnapshotRequest{Prefix: prefix, ExpectedRevision: 1, MaxRecords: 1, MaxBytes: 1 << 20}
+	result := RecoverySnapshotResult{DatabaseID: "database", RequestID: "request", ObservedRevision: 1, AsOf: time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC), Records: []Record{{Key: prefix + "x", Value: []byte("value"), Revision: 1}}}
+	encoded, err := EncodeRecoverySnapshot(result, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeRecoverySnapshot(encoded, result.RequestID, request)
+	if err != nil || len(decoded.Records) != 1 || len(decoded.Records[0].Key) != HardMaxKeyBytes {
+		t.Fatalf("hard-bound key roundtrip=%d err=%v", len(decoded.Records[0].Key), err)
+	}
+	invalid := request
+	invalid.Prefix = string([]byte{'k', 0xff})
+	if err := ValidateRecoverySnapshotRequest(invalid, Limits{MaxKeyBytes: HardMaxKeyBytes}); err == nil {
+		t.Fatal("invalid UTF-8 prefix admitted")
+	}
+}
+
+func TestPrivateRecoveryDecodeCapsOwnedValueSlices(t *testing.T) {
+	request := RecoverySnapshotRequest{Prefix: "spk/", ExpectedRevision: 2, MaxRecords: 2, MaxBytes: 1024}
+	result := RecoverySnapshotResult{DatabaseID: "database", RequestID: "request", ObservedRevision: 2, AsOf: time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC), Records: []Record{{Key: "spk/a", Value: []byte("one"), Revision: 1}, {Key: "spk/b", Value: []byte("two"), Revision: 2}}}
+	encoded, err := EncodeRecoverySnapshot(result, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := decodeRecoverySnapshot(encoded, result.RequestID, request, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := range decoded.Records {
+		if cap(decoded.Records[index].Value) != len(decoded.Records[index].Value) {
+			t.Fatalf("record %d value cap=%d len=%d", index, cap(decoded.Records[index].Value), len(decoded.Records[index].Value))
+		}
+	}
+	first := append(decoded.Records[0].Value, 'x')
+	if string(first) != "onex" || string(decoded.Records[1].Value) != "two" {
+		t.Fatal("owned value append reached adjacent frame membership")
+	}
+}
+
+func TestRecoverySnapshotSemanticMutantsFailAfterValidDigest(t *testing.T) {
+	request := RecoverySnapshotRequest{Prefix: "spk/", ExpectedRevision: 7, MaxRecords: 1, MaxBytes: 1024}
+	result := RecoverySnapshotResult{DatabaseID: "database", RequestID: "request", ObservedRevision: 7, AsOf: time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC), Records: []Record{{Key: "spk/a", Value: []byte("one"), Revision: 7}}}
+	encoded, err := EncodeRecoverySnapshot(result, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identityEnd := 8 + 2 + len(result.DatabaseID) + 2 + len(result.RequestID)
+	recordStart := identityEnd + 8 + 8 + 4
+	mutants := map[string]func([]byte){
+		"observed revision": func(value []byte) { binary.BigEndian.PutUint64(value[identityEnd:], 8) },
+		"invalid key UTF-8": func(value []byte) { value[recordStart+4] = 0xff },
+		"future record revision": func(value []byte) {
+			keySize := int(binary.BigEndian.Uint32(value[recordStart:]))
+			binary.BigEndian.PutUint64(value[recordStart+4+keySize:], 8)
+		},
+	}
+	for name, mutate := range mutants {
+		t.Run(name, func(t *testing.T) {
+			candidate := bytes.Clone(encoded)
+			mutate(candidate)
+			digest := sha256.Sum256(candidate[:len(candidate)-sha256.Size])
+			copy(candidate[len(candidate)-sha256.Size:], digest[:])
+			if _, err := DecodeRecoverySnapshot(candidate, result.RequestID, request); err == nil {
+				t.Fatal("semantic mutant passed with a valid frame digest")
+			}
+		})
+	}
+}
+
+func TestRecoverySnapshotCodecRejectsUnrepresentableTimes(t *testing.T) {
+	request := RecoverySnapshotRequest{Prefix: "spk/", ExpectedRevision: 1, MaxRecords: 1, MaxBytes: 1024}
+	base := RecoverySnapshotResult{DatabaseID: "database", RequestID: "request", ObservedRevision: 1, AsOf: time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC)}
+	if _, err := EncodeRecoverySnapshot(base, request); err == nil {
+		t.Fatal("unrepresentable observation time admitted")
+	}
+	base.AsOf = time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	expires := time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC)
+	base.Records = []Record{{Key: "spk/a", Value: []byte("one"), Revision: 1, ExpiresAt: &expires}}
+	if _, err := EncodeRecoverySnapshot(base, request); err == nil {
+		t.Fatal("unrepresentable expiry admitted")
+	}
+}
+
+func FuzzDecodeRecoverySnapshot(f *testing.F) {
+	request := RecoverySnapshotRequest{Prefix: "spk/", ExpectedRevision: 1, MaxRecords: 4, MaxBytes: 4096}
+	result := RecoverySnapshotResult{DatabaseID: "database", RequestID: "request", ObservedRevision: 1, AsOf: time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC), Records: []Record{{Key: "spk/a", Value: []byte("one"), Revision: 1}}}
+	encoded, err := EncodeRecoverySnapshot(result, request)
+	if err != nil {
+		f.Fatal(err)
+	}
+	f.Add(encoded)
+	f.Add([]byte("GDBREC1\n"))
+	f.Fuzz(func(t *testing.T, payload []byte) {
+		_, _ = DecodeRecoverySnapshot(payload, result.RequestID, request)
+	})
 }
