@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 	"unicode/utf8"
 
@@ -165,6 +166,11 @@ func (state *DatabaseState) execute(batch gapdb.Batch, single singleOperation, p
 	if predicateErr != nil {
 		return CommitResult{}, predicateErr
 	}
+	// Plan the immutable ordered-index replacement before allocating or
+	// persisting a revision. The writer goroutine serializes mutations, while
+	// the brief read lock in planOrderedKeys copies the current index for
+	// O(n+k log k) delta merging without blocking readers during the merge.
+	orderedKeys := state.planOrderedKeys(batch.Mutations)
 
 	// Reviewer invariant: this is the engine's sole revision-allocation call site.
 	revision, err := state.allocator.Next()
@@ -215,6 +221,11 @@ func (state *DatabaseState) execute(batch gapdb.Batch, single singleOperation, p
 	state.mu.Lock()
 	for index, mutation := range batch.Mutations {
 		events[index] = state.apply(revision, uint32(index), mutation, single)
+	}
+	if orderedKeys.replacement != nil {
+		state.orderedKeys = orderedKeys.replacement
+	} else if len(orderedKeys.tail) != 0 {
+		state.orderedKeys = append(state.orderedKeys, orderedKeys.tail...)
 	}
 	state.current = revision
 	if durableThrough > state.durableThrough {
@@ -405,6 +416,94 @@ func (state *DatabaseState) apply(revision gapdb.Revision, order uint32, mutatio
 	state.records[mutation.Key] = record
 	clone := record.Clone()
 	return gapdb.ChangeEvent{Revision: revision, Order: order, Kind: gapdb.ChangePut, Key: mutation.Key, Record: &clone}
+}
+
+type orderedKeyPlan struct {
+	replacement []string
+	tail        []string
+}
+
+func (state *DatabaseState) planOrderedKeys(mutations []gapdb.Mutation) orderedKeyPlan {
+	state.mu.RLock()
+	changed := false
+	bulkMerge := false
+	additions := make([]string, 0, len(mutations))
+	last := ""
+	if len(state.orderedKeys) != 0 {
+		last = state.orderedKeys[len(state.orderedKeys)-1]
+	}
+	for _, mutation := range mutations {
+		index := sort.SearchStrings(state.orderedKeys, mutation.Key)
+		exists := index < len(state.orderedKeys) && state.orderedKeys[index] == mutation.Key
+		if mutation.Kind == gapdb.MutationDelete && exists {
+			changed = true
+			bulkMerge = true
+		}
+		if mutation.Kind == gapdb.MutationPut && !exists {
+			changed = true
+			additions = append(additions, mutation.Key)
+			if last != "" && mutation.Key <= last {
+				bulkMerge = true
+			}
+		}
+	}
+	if !changed {
+		state.mu.RUnlock()
+		return orderedKeyPlan{}
+	}
+	if !bulkMerge {
+		sort.Strings(additions)
+		if len(state.orderedKeys)+len(additions) <= cap(state.orderedKeys) {
+			state.mu.RUnlock()
+			return orderedKeyPlan{tail: additions}
+		}
+		capacity := max(16, cap(state.orderedKeys)*2, len(state.orderedKeys)+len(additions))
+		replacement := make([]string, len(state.orderedKeys), capacity)
+		copy(replacement, state.orderedKeys)
+		replacement = append(replacement, additions...)
+		state.mu.RUnlock()
+		return orderedKeyPlan{replacement: replacement}
+	}
+	base := append([]string(nil), state.orderedKeys...)
+	state.mu.RUnlock()
+	return orderedKeyPlan{replacement: mergeOrderedKeyDelta(base, mutations)}
+}
+
+func mergeOrderedKeyDelta(base []string, mutations []gapdb.Mutation) []string {
+	removed := make(map[string]struct{}, len(mutations))
+	additions := make([]string, 0, len(mutations))
+	for _, mutation := range mutations {
+		index := sort.SearchStrings(base, mutation.Key)
+		exists := index < len(base) && base[index] == mutation.Key
+		if mutation.Kind == gapdb.MutationDelete {
+			if exists {
+				removed[mutation.Key] = struct{}{}
+			}
+			continue
+		}
+		if !exists {
+			additions = append(additions, mutation.Key)
+		}
+	}
+	sort.Strings(additions)
+	result := make([]string, 0, len(base)+len(additions)-len(removed))
+	baseIndex, additionIndex := 0, 0
+	for baseIndex < len(base) || additionIndex < len(additions) {
+		if baseIndex < len(base) {
+			if _, skip := removed[base[baseIndex]]; skip {
+				baseIndex++
+				continue
+			}
+		}
+		if additionIndex == len(additions) || baseIndex < len(base) && base[baseIndex] < additions[additionIndex] {
+			result = append(result, base[baseIndex])
+			baseIndex++
+			continue
+		}
+		result = append(result, additions[additionIndex])
+		additionIndex++
+	}
+	return result
 }
 
 func cloneEvents(events []gapdb.ChangeEvent) []gapdb.ChangeEvent {

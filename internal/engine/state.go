@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -44,6 +45,7 @@ type Config struct {
 type DatabaseState struct {
 	mu             sync.RWMutex
 	records        map[string]gapdb.Record
+	orderedKeys    []string
 	current        gapdb.Revision
 	durableThrough gapdb.Revision
 	lifecycle      gapdb.LifecycleState
@@ -161,6 +163,11 @@ func New(config Config) (*DatabaseState, error) {
 		state.records[record.Key] = record.Clone()
 		state.scheduleRecordExpiry(record)
 	}
+	state.orderedKeys = make([]string, 0, len(state.records))
+	for key := range state.records {
+		state.orderedKeys = append(state.orderedKeys, key)
+	}
+	sort.Strings(state.orderedKeys)
 	if err := state.history.rebuild(config.RecoveredCommits, config.CurrentRevision); err != nil {
 		state.expiryTimer.Stop()
 		return nil, err

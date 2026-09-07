@@ -2,6 +2,8 @@ package engine
 
 import (
 	"errors"
+	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -53,6 +55,208 @@ func TestScanPrefixOrdersBoundsAndReusesCursorAsOf(t *testing.T) {
 	}
 	if len(second.Records) != 2 || second.Records[0].Key != "p/b" || second.Records[1].Key != "p/é" || second.AsOf != first.AsOf || second.ObservedRevision != first.ObservedRevision {
 		t.Fatalf("continuation = %+v", second)
+	}
+}
+
+func TestScanPrefixOrderedIndexTracksRecoveryInsertUpdateAndDelete(t *testing.T) {
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	records := []gapdb.Record{
+		gapdb.NewRecord("p/z", []byte("z"), 1, nil),
+		gapdb.NewRecord("p/b", []byte("b"), 1, nil),
+	}
+	state, _ := newObservationState(t, clock.NewManual(now), newManualExpiryTimer(), gapdb.Limits{}, records, 1)
+	t.Cleanup(func() { closeState(t, state) })
+	initial, err := state.ScanPrefix("p/", 10, "")
+	if err != nil || len(initial.Records) != 2 || initial.Records[0].Key != "p/b" || initial.Records[1].Key != "p/z" {
+		t.Fatalf("recovered index scan = %+v, %v", initial, err)
+	}
+	if _, err := state.Put(t.Context(), "p/a", []byte("a"), nil, gapdb.AckMemory); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := state.Put(t.Context(), "p/z", []byte("new-z"), nil, gapdb.AckMemory); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := state.DeleteIfRevision(t.Context(), "p/b", 1, gapdb.AckMemory); err != nil {
+		t.Fatal(err)
+	}
+	page, err := state.ScanPrefix("p/", 10, "")
+	if err != nil || len(page.Records) != 2 || page.Records[0].Key != "p/a" || page.Records[1].Key != "p/z" || string(page.Records[1].Value) != "new-z" {
+		t.Fatalf("mutated index scan = %+v, %v", page, err)
+	}
+}
+
+func TestScanPrefixFirstPageAllocationsAreBoundedByPageNotDatabase(t *testing.T) {
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	records := make([]gapdb.Record, 10_000)
+	for index := range records {
+		records[index] = gapdb.NewRecord(fmt.Sprintf("p/%05d", index), []byte("value"), 1, nil)
+	}
+	state, _ := newObservationState(t, clock.NewManual(now), newManualExpiryTimer(), gapdb.Limits{}, records, 1)
+	t.Cleanup(func() { closeState(t, state) })
+	var scanErr error
+	allocations := testing.AllocsPerRun(5, func() {
+		_, scanErr = state.ScanPrefix("p/", 500, "")
+	})
+	if scanErr != nil {
+		t.Fatal(scanErr)
+	}
+	if allocations > 2_000 {
+		t.Fatalf("first-page allocations = %.0f, want page-bounded work", allocations)
+	}
+}
+
+func TestOrderedKeyDeltaLargeAdversarialBatchIsBounded(t *testing.T) {
+	base := make([]string, 100_000)
+	for index := range base {
+		base[index] = fmt.Sprintf("m/%06d", index)
+	}
+	mutations := make([]gapdb.Mutation, 0, 10_000)
+	for index := 3_332; index >= 0; index-- {
+		mutations = append(mutations, gapdb.NewPutMutation(fmt.Sprintf("a/%05d", index), nil, gapdb.Condition{Kind: gapdb.ConditionAny}, nil))
+	}
+	for index := 3_332; index >= 0; index-- {
+		mutations = append(mutations, gapdb.NewPutMutation(fmt.Sprintf("m/%06d/x", index*20+1), nil, gapdb.Condition{Kind: gapdb.ConditionAny}, nil))
+	}
+	for index := 0; index < 3_334; index++ {
+		mutations = append(mutations, gapdb.Mutation{Kind: gapdb.MutationDelete, Key: fmt.Sprintf("m/%06d", index*20)})
+	}
+	started := time.Now()
+	result := mergeOrderedKeyDelta(base, mutations)
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("100k-key/10k-delta merge took %s", elapsed)
+	}
+	if len(result) != len(base)+6_666-3_334 || !sort.StringsAreSorted(result) {
+		t.Fatalf("merged key census length/sort = %d/%v", len(result), sort.StringsAreSorted(result))
+	}
+	for index := 1; index < len(result); index++ {
+		if result[index-1] == result[index] {
+			t.Fatalf("duplicate ordered key %q", result[index])
+		}
+	}
+}
+
+func TestOverwriteOnlyBatchDoesNotCopyOrReplaceOrderedIndex(t *testing.T) {
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	records := make([]gapdb.Record, 100_000)
+	for index := range records {
+		records[index] = gapdb.NewRecord(fmt.Sprintf("m/%06d", index), nil, 1, nil)
+	}
+	state, _ := newObservationState(t, clock.NewManual(now), newManualExpiryTimer(), gapdb.Limits{}, records, 1)
+	t.Cleanup(func() { closeState(t, state) })
+	before := &state.orderedKeys[0]
+	mutations := make([]gapdb.Mutation, 128)
+	for index := range mutations {
+		mutations[index] = gapdb.NewPutMutation(fmt.Sprintf("m/%06d", index*500), []byte("updated"), gapdb.Condition{Kind: gapdb.ConditionAny}, nil)
+	}
+	started := time.Now()
+	if _, err := state.AtomicBatch(t.Context(), gapdb.Batch{Ack: gapdb.AckMemory, Mutations: mutations}); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed > 250*time.Millisecond {
+		t.Fatalf("128-key overwrite acknowledgement took %s", elapsed)
+	}
+	if before != &state.orderedKeys[0] {
+		t.Fatal("overwrite-only batch replaced the ordered membership index")
+	}
+}
+
+func TestAscendingSingletonMembershipGrowthIsAmortized(t *testing.T) {
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	records := make([]gapdb.Record, 100_000)
+	for index := range records {
+		records[index] = gapdb.NewRecord(fmt.Sprintf("m/%06d", index), nil, 1, nil)
+	}
+	limits := gapdb.DefaultOptions().Limits
+	limits.MaxHistoryEvents = 200_000
+	state, _ := newObservationState(t, clock.NewManual(now), newManualExpiryTimer(), limits, records, 1)
+	t.Cleanup(func() { closeState(t, state) })
+	backing := &state.orderedKeys[0]
+	reallocations := 0
+	started := time.Now()
+	for index := 0; index < 10_000; index++ {
+		if _, err := state.Put(t.Context(), fmt.Sprintf("z/%05d", index), nil, nil, gapdb.AckMemory); err != nil {
+			t.Fatal(err)
+		}
+		if current := &state.orderedKeys[0]; current != backing {
+			backing = current
+			reallocations++
+		}
+	}
+	if elapsed := time.Since(started); elapsed > 4*time.Second {
+		t.Fatalf("10k ascending singleton insertions took %s", elapsed)
+	}
+	if reallocations > 2 {
+		t.Fatalf("ordered index reallocated %d times, want geometric growth", reallocations)
+	}
+	if len(state.orderedKeys) != 110_000 || state.orderedKeys[len(state.orderedKeys)-1] != "z/09999" {
+		t.Fatalf("tail growth census = %d/%q", len(state.orderedKeys), state.orderedKeys[len(state.orderedKeys)-1])
+	}
+}
+
+func TestLargeDescendingMembershipBatchesStayWithinAcknowledgementBudget(t *testing.T) {
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	records := make([]gapdb.Record, 100_000)
+	for index := range records {
+		records[index] = gapdb.NewRecord(fmt.Sprintf("m/%06d", index), nil, 1, nil)
+	}
+	limits := gapdb.DefaultOptions().Limits
+	limits.MaxBatchOperations = 10_000
+	state, _ := newObservationState(t, clock.NewManual(now), newManualExpiryTimer(), limits, records, 1)
+	t.Cleanup(func() { closeState(t, state) })
+	stopReader := make(chan struct{})
+	readerReady := make(chan struct{})
+	readerResult := make(chan error, 1)
+	go func() {
+		if _, err := state.Get("m/050000"); err != nil {
+			readerResult <- err
+			return
+		}
+		close(readerReady)
+		for {
+			select {
+			case <-stopReader:
+				readerResult <- nil
+				return
+			default:
+				if _, err := state.Get("m/050000"); err != nil {
+					readerResult <- err
+					return
+				}
+			}
+		}
+	}()
+	<-readerReady
+
+	insertions := make([]gapdb.Mutation, 0, 10_000)
+	for index := 9_999; index >= 0; index-- {
+		insertions = append(insertions, gapdb.NewPutMutation(fmt.Sprintf("a/%05d", index), nil, gapdb.Condition{Kind: gapdb.ConditionAny}, nil))
+	}
+	started := time.Now()
+	inserted, err := state.AtomicBatch(t.Context(), gapdb.Batch{Ack: gapdb.AckMemory, Mutations: insertions})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("descending 10k-key insertion acknowledgement took %s", elapsed)
+	}
+
+	deletions := make([]gapdb.Mutation, 0, 10_000)
+	for index := 9_999; index >= 0; index-- {
+		deletions = append(deletions, gapdb.NewDeleteMutation(fmt.Sprintf("a/%05d", index), inserted.Revision))
+	}
+	started = time.Now()
+	if _, err := state.AtomicBatch(t.Context(), gapdb.Batch{Ack: gapdb.AckMemory, Mutations: deletions}); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("descending 10k-key deletion acknowledgement took %s", elapsed)
+	}
+	if len(state.orderedKeys) != len(records) {
+		t.Fatalf("ordered key census after insert/delete = %d", len(state.orderedKeys))
+	}
+	close(stopReader)
+	if err := <-readerResult; err != nil {
+		t.Fatalf("concurrent exact reader: %v", err)
 	}
 }
 
