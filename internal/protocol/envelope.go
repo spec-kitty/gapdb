@@ -46,19 +46,28 @@ const (
 	OperationOfflineRecoverApply   Operation = "offline_recover_apply"
 )
 
+var allOperations = []Operation{
+	OperationGet, OperationGetMany, OperationPut, OperationPutIfAbsent,
+	OperationCompareAndSwap, OperationDeleteIfRevision, OperationAtomicBatch,
+	OperationScanPrefix, OperationWatch, OperationStatus, OperationHealth,
+	OperationStats, OperationDescribeConfig, OperationVerify,
+	OperationCreateSnapshot, OperationCompact, OperationBackup,
+	OperationOfflineInspect, OperationOfflineVerify,
+	OperationOfflineRecoverPropose, OperationOfflineRecoverApply,
+}
+
 func (o Operation) Valid() bool {
-	switch o {
-	case OperationGet, OperationGetMany, OperationPut, OperationPutIfAbsent, OperationCompareAndSwap,
-		OperationDeleteIfRevision, OperationAtomicBatch, OperationScanPrefix,
-		OperationWatch, OperationStatus, OperationHealth, OperationStats,
-		OperationDescribeConfig, OperationVerify, OperationCreateSnapshot,
-		OperationCompact, OperationBackup, OperationOfflineInspect,
-		OperationOfflineVerify, OperationOfflineRecoverPropose,
-		OperationOfflineRecoverApply:
-		return true
-	default:
-		return false
+	for _, candidate := range allOperations {
+		if o == candidate {
+			return true
+		}
 	}
+	return false
+}
+
+// Operations returns the complete protocol-v1 operation census.
+func Operations() []Operation {
+	return append([]Operation(nil), allOperations...)
 }
 
 type Request struct {
@@ -427,7 +436,7 @@ func DecodeResponse(payload []byte, maximum int) (Response, error) {
 		}
 		structuredError = &decoded
 	}
-	result, err := decodeResult(envelope.Operation, envelope.Result)
+	result, err := decodeResult(envelope.Operation, envelope.Result, maximum)
 	if err != nil {
 		return Response{}, err
 	}
@@ -477,7 +486,7 @@ func DecodeResponse(payload []byte, maximum int) (Response, error) {
 	}, nil
 }
 
-func decodeResult(operation Operation, raw json.RawMessage) (any, error) {
+func decodeResult(operation Operation, raw json.RawMessage, maximum int) (any, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
@@ -536,6 +545,14 @@ func decodeResult(operation Operation, raw json.RawMessage) (any, error) {
 				entry.Record = &record
 			}
 			result.Entries[index] = entry
+		}
+		limits := gapdb.DefaultOptions().Limits
+		limits.MaxKeyBytes = gapdb.HardMaxKeyBytes
+		limits.MaxBatchOperations = gapdb.HardMaxBatchOperations
+		limits.MaxFrameBytes = maximum
+		limits.MaxScanBytes = maximum
+		if err := gapdb.ValidateReadManyResult(result, limits); err != nil {
+			return nil, invalidProtocol("result", err.Error(), err)
 		}
 		return result, nil
 	case OperationPut, OperationPutIfAbsent, OperationCompareAndSwap,
@@ -1097,6 +1114,9 @@ func decodeArguments(operation Operation, raw []byte, limits gapdb.Limits) (any,
 		}
 		if len(value.Keys) == 0 || len(value.Keys) > limits.MaxBatchOperations {
 			return nil, invalidProtocol("arguments.keys", "is outside the configured batch-operation limit", nil)
+		}
+		if len(raw) > limits.MaxBatchBytes {
+			return nil, &gapdb.Error{Code: gapdb.CodeBatchTooLarge, Message: "Exact read request exceeds the configured byte limit.", Retry: gapdb.RetryNever, ReceivedBytes: len(raw), MaximumBytes: limits.MaxBatchBytes, SafeActions: []gapdb.SafeAction{gapdb.ActionSplitBatch, gapdb.ActionAbort}}
 		}
 		seen := make(map[string]struct{}, len(value.Keys))
 		for _, key := range value.Keys {

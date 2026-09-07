@@ -17,7 +17,7 @@ const maxAssertionDiagnosticBytes = 4 << 10
 // validateClientResponse is the deletion-sensitive protocol-v1 validation
 // boundary. Public result decoding is deliberately performed only after this
 // function has accepted every nested field and spelling.
-func validateClientResponse(payload []byte) error {
+func validateClientResponse(payload []byte, limits Limits) error {
 	var envelope struct {
 		SchemaVersion        *uint64         `json:"schema_version"`
 		OK                   *bool           `json:"ok"`
@@ -72,7 +72,7 @@ func validateClientResponse(payload []byte) error {
 			if !has("result") {
 				return errors.New("successful unary result is required")
 			}
-			return validateClientResult(envelope.Operation, envelope.Result)
+			return validateClientResult(envelope.Operation, envelope.Result, limits)
 		}
 		if has("result") {
 			return errors.New("failed unary result must be omitted")
@@ -111,7 +111,7 @@ func validateClientResponse(payload []byte) error {
 	return nil
 }
 
-func validateClientResult(operation string, raw []byte) error {
+func validateClientResult(operation string, raw []byte, limits Limits) error {
 	required := map[string][]string{
 		"get":      {"record"},
 		"get_many": {"observed_revision", "as_of", "entries"},
@@ -164,8 +164,9 @@ func validateClientResult(operation string, raw []byte) error {
 		if len(value.Entries) == 0 {
 			return errors.New("read-many entries are required")
 		}
+		result := ReadManyResult{ObservedRevision: value.ObservedRevision, AsOf: time.Time(value.AsOf), Entries: make([]ReadManyEntry, len(value.Entries))}
 		seen := make(map[string]struct{}, len(value.Entries))
-		for _, entry := range value.Entries {
+		for index, entry := range value.Entries {
 			if entry.Key == "" || entry.Found == nil || *entry.Found != (entry.Record != nil) {
 				return errors.New("read-many entry presence is invalid")
 			}
@@ -181,8 +182,13 @@ func validateClientResult(operation string, raw []byte) error {
 					return errors.New("read-many record does not match entry key")
 				}
 			}
+			result.Entries[index] = ReadManyEntry{Key: entry.Key, Found: *entry.Found}
+			if entry.Record != nil {
+				record := Record{Key: entry.Record.Key, Value: append([]byte(nil), entry.Record.Value...), Revision: entry.Record.Revision, ExpiresAt: entry.Record.ExpiresAt.timePointer()}
+				result.Entries[index].Record = &record
+			}
 		}
-		return nil
+		return ValidateReadManyResult(result, limits)
 	case "put", "put_if_absent", "compare_and_swap", "delete_if_revision", "atomic_batch":
 		destination = &MutationResult{}
 	case "scan_prefix":
@@ -317,6 +323,14 @@ func (value *clientBase64) UnmarshalJSON(encoded []byte) error {
 }
 
 type clientUTCInstant time.Time
+
+func (value *clientUTCInstant) timePointer() *time.Time {
+	if value == nil {
+		return nil
+	}
+	result := time.Time(*value).UTC()
+	return &result
+}
 
 func (value *clientUTCInstant) UnmarshalJSON(encoded []byte) error {
 	var text string

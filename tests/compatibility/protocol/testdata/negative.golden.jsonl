@@ -10,5 +10,7 @@
 {"name":"frame-too-large","generator":"frame-too-large","code":"FRAME_TOO_LARGE","evidence":"received_bytes"}
 {"name":"batch-operations-too-large","generator":"batch-operations-too-large","code":"BATCH_TOO_LARGE","evidence":"received_operations"}
 {"name":"batch-bytes-too-large","generator":"batch-bytes-too-large","code":"BATCH_TOO_LARGE","evidence":"received_bytes"}
+{"name":"read-many-operations-too-large","generator":"read-many-operations-too-large","code":"INVALID_REQUEST","field":"arguments.keys","reason_contains":"batch-operation limit"}
+{"name":"read-many-bytes-too-large","generator":"read-many-bytes-too-large","code":"BATCH_TOO_LARGE","evidence":"received_bytes"}
 {"name":"request-id-too-large","generator":"request-id-too-large","code":"INVALID_REQUEST","field":"request_id","reason_contains":"256 bytes"}
 {"name":"scan-limit-too-large","generator":"scan-limit-too-large","code":"INVALID_REQUEST","field":"arguments.limit","reason_contains":"configured scan limit"}

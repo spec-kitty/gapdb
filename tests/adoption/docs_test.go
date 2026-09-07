@@ -393,7 +393,7 @@ func recordedReleaseAuthority() adoption.ReleaseAuthority {
 			"performance-raw":     {Kind: adoption.EvidenceRaw, SourceCommit: recordedPerformanceCommit, ConfigSHA256: recordedConfigSHA256, Command: performance, ObservedCount: 3},
 			"adoption-contract":   {Kind: adoption.EvidenceAdoption, SourceCommit: recordedPerformanceCommit, ConfigSHA256: recordedConfigSHA256, Command: adoptionRun, ObservedCount: adoption.ScenarioCount},
 			"crash-race":          {Kind: adoption.EvidenceCrash, SourceCommit: recordedCrashCommit, Command: crash, ObservedCount: 1_024},
-			"protocol-format":     {Kind: adoption.EvidenceProtocolDoc, SourceCommit: recordedPerformanceCommit, ConfigSHA256: recordedConfigSHA256, Command: doc, ObservedCount: 29},
+			"protocol-format":     {Kind: adoption.EvidenceProtocolDoc, SourceCommit: recordedPerformanceCommit, ConfigSHA256: recordedConfigSHA256, Command: doc, ObservedCount: 30},
 			"storage-format":      {Kind: adoption.EvidenceStorageDoc, SourceCommit: recordedPerformanceCommit, ConfigSHA256: recordedConfigSHA256, Command: doc, ObservedCount: 11},
 		},
 		Criteria: map[string]adoption.CriterionAuthority{},

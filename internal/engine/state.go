@@ -204,26 +204,17 @@ func (state *DatabaseState) ReadMany(keys []string) (gapdb.ReadManyResult, error
 	defer state.mu.RUnlock()
 	asOf := state.clock.Now()
 	result := gapdb.ReadManyResult{ObservedRevision: state.current, AsOf: asOf.UTC(), Entries: make([]gapdb.ReadManyEntry, 0, len(keys))}
-	used := 0
 	for _, key := range keys {
 		record, exists := state.records[key]
 		if !exists || recordExpired(record, asOf) {
-			used += 16 + len(key)
 			result.Entries = append(result.Entries, gapdb.ReadManyEntry{Key: key})
 			continue
-		}
-		used += 32 + len(record.Key) + len(record.Value)
-		if record.ExpiresAt != nil {
-			used += 8
-		}
-		if used > state.limits.MaxScanBytes {
-			return gapdb.ReadManyResult{}, &gapdb.Error{Code: gapdb.CodeFrameTooLarge, Message: "Exact read response exceeds the configured byte limit.", Retry: gapdb.RetryNever, ReceivedBytes: used, MaximumBytes: state.limits.MaxScanBytes, SafeActions: []gapdb.SafeAction{gapdb.ActionReduceRequest, gapdb.ActionAbort}}
 		}
 		owned := record.Clone()
 		result.Entries = append(result.Entries, gapdb.ReadManyEntry{Key: key, Found: true, Record: &owned})
 	}
-	if used > state.limits.MaxScanBytes {
-		return gapdb.ReadManyResult{}, &gapdb.Error{Code: gapdb.CodeFrameTooLarge, Message: "Exact read response exceeds the configured byte limit.", Retry: gapdb.RetryNever, ReceivedBytes: used, MaximumBytes: state.limits.MaxScanBytes, SafeActions: []gapdb.SafeAction{gapdb.ActionReduceRequest, gapdb.ActionAbort}}
+	if err := gapdb.ValidateReadManyResult(result, state.limits); err != nil {
+		return gapdb.ReadManyResult{}, err
 	}
 	return result, nil
 }

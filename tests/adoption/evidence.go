@@ -498,7 +498,7 @@ func sameStringSet(actual, expected []string) bool {
 
 var protocolAuthorityTokens = []string{
 	"../../internal/protocol", "../../gapdb/client.go", "requests.golden.jsonl", "success.golden.jsonl", "errors.golden.jsonl", "negative.golden.jsonl",
-	"get", "put", "put_if_absent", "compare_and_swap", "delete_if_revision", "atomic_batch", "scan_prefix", "watch",
+	"get", "get_many", "put", "put_if_absent", "compare_and_swap", "delete_if_revision", "atomic_batch", "scan_prefix", "watch",
 	"status", "health", "stats", "describe_config", "verify", "create_snapshot", "compact", "backup",
 	"offline_inspect", "offline_verify", "offline_recover_propose", "offline_recover_apply", "Memory acknowledgement", "not durable", "0600",
 }

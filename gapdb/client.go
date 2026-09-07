@@ -48,7 +48,7 @@ type Client struct {
 	closed     bool
 	watches    map[uint64]*watchReservation
 	reuseUnary bool
-	unaryMu    sync.Mutex
+	unaryGate  chan struct{}
 	unaryConn  net.Conn
 }
 
@@ -75,6 +75,9 @@ func Dial(socketPath string, options ClientOptions) (*Client, error) {
 		return nil, err
 	}
 	client := &Client{socketPath: socketPath, timeout: options.Timeout, limits: limits, watches: make(map[uint64]*watchReservation), reuseUnary: options.ReuseUnaryConnection}
+	if client.reuseUnary {
+		client.unaryGate = make(chan struct{}, 1)
+	}
 	conn, err := client.dial(context.Background())
 	if err != nil {
 		return nil, err
@@ -94,6 +97,8 @@ func (c *Client) Close() error {
 	c.closed = true
 	reservations := c.watches
 	c.watches = make(map[uint64]*watchReservation)
+	unaryConn := c.unaryConn
+	c.unaryConn = nil
 	c.mu.Unlock()
 	for _, reservation := range reservations {
 		reservation.cancel()
@@ -101,10 +106,6 @@ func (c *Client) Close() error {
 			_ = reservation.conn.Close()
 		}
 	}
-	c.unaryMu.Lock()
-	unaryConn := c.unaryConn
-	c.unaryConn = nil
-	c.unaryMu.Unlock()
 	if unaryConn != nil {
 		_ = unaryConn.Close()
 	}
@@ -172,6 +173,9 @@ func (c *Client) ReadMany(ctx context.Context, keys []string) (ReadManyResult, e
 	if err := json.Unmarshal(r.Result, &result); err != nil || len(result.Entries) != len(owned) {
 		return ReadManyResult{}, c.invalidResult("get_many", err)
 	}
+	if err := ValidateReadManyResult(result, c.limits); err != nil {
+		return ReadManyResult{}, c.invalidResult("get_many", err)
+	}
 	for index, entry := range result.Entries {
 		if entry.Key != owned[index] || entry.Found != (entry.Record != nil) || entry.Found && (entry.Record.Key != entry.Key || entry.Record.Revision == 0) {
 			return ReadManyResult{}, c.invalidResult("get_many", errors.New("entries do not exactly match requested keys"))
@@ -185,7 +189,6 @@ func validateManyRequest(keys []string, limits Limits) error {
 		return invalidField("keys", "must contain between 1 and the configured batch-operation limit")
 	}
 	seen := make(map[string]struct{}, len(keys))
-	requestBytes := 0
 	for _, key := range keys {
 		if err := (Mutation{Kind: MutationPut, Key: key, Condition: Condition{Kind: ConditionAny}}).Validate(limits); err != nil {
 			return err
@@ -194,10 +197,12 @@ func validateManyRequest(keys []string, limits Limits) error {
 			return &Error{Code: CodeDuplicateKey, Message: "Exact read keys must be unique.", Retry: RetryNever, Key: key, SafeActions: []SafeAction{ActionDeduplicateBatch, ActionAbort}}
 		}
 		seen[key] = struct{}{}
-		requestBytes += len(key) + 8
-		if requestBytes > limits.MaxBatchBytes {
-			return &Error{Code: CodeBatchTooLarge, Message: "Exact read request exceeds the configured byte limit.", Retry: RetryNever, ReceivedBytes: requestBytes, MaximumBytes: limits.MaxBatchBytes, SafeActions: []SafeAction{ActionSplitBatch, ActionAbort}}
-		}
+	}
+	arguments, err := json.Marshal(struct {
+		Keys []string `json:"keys"`
+	}{keys})
+	if err != nil || len(arguments) > limits.MaxBatchBytes {
+		return &Error{Code: CodeBatchTooLarge, Message: "Exact read request exceeds the configured byte limit.", Retry: RetryNever, ReceivedBytes: len(arguments), MaximumBytes: limits.MaxBatchBytes, SafeActions: []SafeAction{ActionSplitBatch, ActionAbort}, Cause: err}
 	}
 	return nil
 }
@@ -615,16 +620,36 @@ func (c *Client) unary(ctx context.Context, op string, args any) (wireResponse, 
 // semantics. Any transport or framing failure poisons and closes the
 // connection. A mutation is never replayed automatically.
 func (c *Client) reusableUnary(ctx context.Context, op string, args any) (wireResponse, error) {
-	c.unaryMu.Lock()
-	defer c.unaryMu.Unlock()
+	select {
+	case c.unaryGate <- struct{}{}:
+		defer func() { <-c.unaryGate }()
+	case <-ctx.Done():
+		return wireResponse{}, &TransportError{Operation: op, SocketPath: c.socketPath, Cause: ctx.Err()}
+	}
+	if err := ctx.Err(); err != nil {
+		return wireResponse{}, &TransportError{Operation: op, SocketPath: c.socketPath, Cause: err}
+	}
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return wireResponse{}, &TransportError{Operation: op, SocketPath: c.socketPath, Cause: errors.New("client is closed")}
+	}
 	conn := c.unaryConn
+	c.mu.Unlock()
 	if conn == nil {
 		var err error
 		conn, err = c.dial(ctx)
 		if err != nil {
 			return wireResponse{}, err
 		}
+		c.mu.Lock()
+		if c.closed {
+			c.mu.Unlock()
+			_ = conn.Close()
+			return wireResponse{}, &TransportError{Operation: op, SocketPath: c.socketPath, Cause: errors.New("client is closed")}
+		}
 		c.unaryConn = conn
+		c.mu.Unlock()
 	}
 	req := wireRequest{clientSchemaVersion, c.requestID(ctx), op, args}
 	if err := c.writeRequest(ctx, conn, req); err != nil {
@@ -639,11 +664,12 @@ func (c *Client) reusableUnary(ctx context.Context, op string, args any) (wireRe
 	return response, err
 }
 
-// discardUnaryConnection is called only while unaryMu is held.
 func (c *Client) discardUnaryConnection(conn net.Conn) {
+	c.mu.Lock()
 	if c.unaryConn == conn {
 		c.unaryConn = nil
 	}
+	c.mu.Unlock()
 	_ = conn.Close()
 }
 func (c *Client) requestID(ctx context.Context) string {
@@ -730,7 +756,7 @@ func (c *Client) readResponse(ctx context.Context, conn net.Conn, op, id string,
 	if err != nil {
 		return wireResponse{}, &TransportError{Operation: op, SocketPath: c.socketPath, Ambiguous: true, Cause: err}
 	}
-	if err := validateClientResponse(payload); err != nil {
+	if err := validateClientResponse(payload, c.limits); err != nil {
 		return wireResponse{}, c.invalidResult(op, err)
 	}
 	var response wireResponse

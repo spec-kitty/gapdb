@@ -48,6 +48,37 @@ func TestSuccessAndWatchGoldenFixtures(t *testing.T) {
 	})
 }
 
+func TestEveryOnlineOperationHasFrozenRequestAndSuccessAuthority(t *testing.T) {
+	operations := wire.Operations()
+	requests := make(map[wire.Operation]bool, len(operations))
+	forEachFixtureLine(t, "requests.golden.jsonl", func(t *testing.T, fixture []byte) {
+		request, err := wire.DecodeRequest(fixture, gapdb.DefaultOptions().Limits)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requests[request.Operation] = true
+	})
+	successes := make(map[wire.Operation]bool, len(operations))
+	forEachFixtureLine(t, "success.golden.jsonl", func(t *testing.T, fixture []byte) {
+		response, err := wire.DecodeResponse(fixture, gapdb.DefaultMaxFrameBytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		successes[response.Operation] = true
+	})
+	for _, operation := range operations {
+		if !operation.Valid() {
+			t.Fatalf("frozen operation %q is not valid", operation)
+		}
+		if !requests[operation] {
+			t.Errorf("operation %q has no canonical request fixture", operation)
+		}
+		if !successes[operation] {
+			t.Errorf("operation %q has no canonical success fixture", operation)
+		}
+	}
+}
+
 func TestEveryStableErrorHasGoldenFixture(t *testing.T) {
 	want := make(map[gapdb.ErrorCode]bool)
 	for _, definition := range gapdb.ErrorDefinitions() {
@@ -201,6 +232,15 @@ func negativePayload(t *testing.T, generator, encoded string) ([]byte, gapdb.Lim
 			gapdb.NewPutMutation("b", make([]byte, gapdb.DefaultMaxValueBytes), gapdb.Condition{Kind: gapdb.ConditionAny}, nil),
 		}
 		return request(wire.OperationAtomicBatch, "", wire.BatchArguments{Ack: gapdb.AckMemory, Mutations: mutations}), limits
+	case "read-many-operations-too-large":
+		keys := make([]string, limits.MaxBatchOperations+1)
+		for index := range keys {
+			keys[index] = "key-" + itoa(index)
+		}
+		return request(wire.OperationGetMany, "", wire.GetManyArguments{Keys: keys}), limits
+	case "read-many-bytes-too-large":
+		limits.MaxBatchBytes = 32
+		return request(wire.OperationGetMany, "", wire.GetManyArguments{Keys: []string{strings.Repeat("\\\"", 20)}}), limits
 	case "request-id-too-large":
 		return request(wire.OperationGet, strings.Repeat("r", 257), wire.GetArguments{Key: "k"}), limits
 	case "scan-limit-too-large":
@@ -213,14 +253,16 @@ func negativePayload(t *testing.T, generator, encoded string) ([]byte, gapdb.Lim
 
 func TestNegativeGoldenCorpusCoverage(t *testing.T) {
 	required := map[string]bool{
-		"duplicate-field":            false,
-		"key-too-large":              false,
-		"value-too-large":            false,
-		"frame-too-large":            false,
-		"batch-operations-too-large": false,
-		"batch-bytes-too-large":      false,
-		"request-id-too-large":       false,
-		"scan-limit-too-large":       false,
+		"duplicate-field":                false,
+		"key-too-large":                  false,
+		"value-too-large":                false,
+		"frame-too-large":                false,
+		"batch-operations-too-large":     false,
+		"batch-bytes-too-large":          false,
+		"read-many-operations-too-large": false,
+		"read-many-bytes-too-large":      false,
+		"request-id-too-large":           false,
+		"scan-limit-too-large":           false,
 	}
 	forEachFixtureLine(t, "negative.golden.jsonl", func(t *testing.T, fixture []byte) {
 		var entry struct {

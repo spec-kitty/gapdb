@@ -1007,6 +1007,9 @@ func TestReadManyStrictOrderedWireContract(t *testing.T) {
 		[]byte(`{"schema_version":1,"operation":"get_many","arguments":{"keys":["a","a"]}}`),
 		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":0,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"missing"}]}}`),
 		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":0,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"missing","found":false,"record":{"key":"missing","value_base64":"","revision":1}}]}}`),
+		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":1,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"present","found":true,"record":{"key":"present","value_base64":"","revision":2}}]}}`),
+		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":1,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"present","found":true,"record":{"key":"present","value_base64":"","revision":1,"expires_at":"2026-09-07T17:00:00Z"}}]}}`),
+		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":0,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"` + strings.Repeat("k", gapdb.HardMaxKeyBytes+1) + `","found":false}]}}`),
 	} {
 		if bytes.Contains(mutant, []byte(`"arguments"`)) {
 			if _, err := DecodeRequest(mutant, gapdb.DefaultOptions().Limits); err == nil {
@@ -1015,6 +1018,13 @@ func TestReadManyStrictOrderedWireContract(t *testing.T) {
 		} else if _, err := DecodeResponse(mutant, gapdb.DefaultMaxFrameBytes); err == nil {
 			t.Fatalf("accepted response mutant %s", mutant)
 		}
+	}
+	entries := make([]gapdb.ReadManyEntry, gapdb.HardMaxBatchOperations+1)
+	for index := range entries {
+		entries[index] = gapdb.ReadManyEntry{Key: "key-" + strconv.Itoa(index)}
+	}
+	if _, err := EncodeResponse(Response{SchemaVersion: SchemaVersion, OK: true, DatabaseID: "db", Operation: OperationGetMany, Result: gapdb.ReadManyResult{AsOf: now, Entries: entries}}); err == nil {
+		t.Fatal("accepted read-many response above the hard entry limit")
 	}
 }
 

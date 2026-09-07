@@ -35,7 +35,7 @@ The exact v1 operations are:
 
 | Class | Operations |
 |---|---|
-| Data | `get`, `put`, `put_if_absent`, `compare_and_swap`, `delete_if_revision`, `atomic_batch`, `scan_prefix`, `watch` |
+| Data | `get`, `get_many`, `put`, `put_if_absent`, `compare_and_swap`, `delete_if_revision`, `atomic_batch`, `scan_prefix`, `watch` |
 | Inspection | `status`, `health`, `stats`, `describe_config`, `verify` |
 | Guarded online admin | `create_snapshot`, `compact`, `backup` |
 | Offline CLI envelopes | `offline_inspect`, `offline_verify`, `offline_recover_propose`, `offline_recover_apply` |
@@ -48,6 +48,12 @@ after the commit and every earlier commit have passed the WAL sync barrier.
 `durable_through_revision` is authority, not advisory text.
 
 Records contain `key`, `value_base64`, `revision`, and optional `expires_at`.
+`get_many` accepts a unique, bounded key list and returns exactly one ordered
+entry per key from one `observed_revision` and canonical `as_of` instant. Each
+entry carries `found`; a found entry carries a matching record, while an absent
+entry omits it. Record revisions cannot exceed the observed revision, and
+records expired at `as_of` cannot be returned. Request bytes, entry count, and
+the fully encoded response are bounded before publication.
 `scan_prefix` returns byte-sorted bounded records, `observed_revision`, `as_of`,
 `truncated`, and an opaque cursor. A later commit invalidates continuation with
 `SCAN_STALE`. Watch resume is exclusive of `after_revision`; backlog and live
@@ -116,6 +122,7 @@ The Go client always traverses the socket:
 ```go
 client, err := gapdb.Dial("/srv/gapdb/gapdb.sock", gapdb.ClientOptions{Timeout: 5*time.Second})
 record, err := client.Get(ctx, "leases/integration")
+records, err := client.ReadMany(ctx, []string{"leases/integration", "workflow/42"})
 put, err := client.Put(ctx, "workflow/42", value, nil, gapdb.AckMemory)
 winner, err := client.PutIfAbsent(ctx, "leases/integration", owner, &expiry, gapdb.AckDurable)
 replaced, err := client.CompareAndSwap(ctx, "workflow/42", put.Revision, next, nil, gapdb.AckDurable)
@@ -124,6 +131,12 @@ batch, err := client.AtomicBatch(ctx, gapdb.Batch{Ack: gapdb.AckDurable, Mutatio
 page, err := client.ScanPrefix(ctx, "workflow/", 100, "")
 watch, err := client.Watch(ctx, "workflow/", page.ObservedRevision)
 ```
+
+High-throughput local callers may opt into serialized unary connection reuse
+with `ClientOptions{ReuseUnaryConnection:true}`. Calls remain one-at-a-time on
+that connection so responses cannot be miscorrelated. Transport failure poisons
+the connection, `Close` interrupts an in-flight call, canceled queued calls are
+not transmitted, and the client never automatically replays a mutation.
 
 The strict noninteractive CLI equivalents are:
 

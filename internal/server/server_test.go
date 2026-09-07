@@ -53,6 +53,42 @@ func TestOpenServesPublicClientAndOwnsSocket(t *testing.T) {
 	}
 }
 
+func TestReusableUnaryCorrelatesConcurrentRequests(t *testing.T) {
+	dir := t.TempDir()
+	srv, err := server.Open(server.Config{Directory: dir, Options: gapdb.DefaultOptions(), ToolVersion: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = srv.Close(context.Background()) })
+	client, err := gapdb.Dial(srv.SocketPath(), gapdb.ClientOptions{Timeout: time.Second, ReuseUnaryConnection: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	for index := 0; index < 20; index++ {
+		key := fmt.Sprintf("key-%02d", index)
+		if _, err := client.Put(t.Context(), key, []byte(key), nil, gapdb.AckMemory); err != nil {
+			t.Fatal(err)
+		}
+	}
+	errorsCh := make(chan error, 20)
+	for index := 0; index < 20; index++ {
+		go func(index int) {
+			key := fmt.Sprintf("key-%02d", index)
+			record, callErr := client.Get(t.Context(), key)
+			if callErr == nil && string(record.Value) != key {
+				callErr = fmt.Errorf("Get(%s) returned %q", key, record.Value)
+			}
+			errorsCh <- callErr
+		}(index)
+	}
+	for range 20 {
+		if err := <-errorsCh; err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestAtomicBatchAssertionsHaveUnixParityWatchAndRecovery(t *testing.T) {
 	dir := t.TempDir()
 	open := func() (*server.Server, *gapdb.Client) {

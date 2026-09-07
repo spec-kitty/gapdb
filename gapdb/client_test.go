@@ -137,7 +137,7 @@ func TestDialFailureIsTransportError(t *testing.T) {
 	}
 }
 
-func TestClientCanReuseOneUnaryConnectionWithoutReplayingMutations(t *testing.T) {
+func TestClientCanReuseOneUnaryConnection(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "reuse.sock")
 	listener, err := net.Listen("unix", path)
 	if err != nil {
@@ -214,6 +214,201 @@ func TestClientCanReuseOneUnaryConnectionWithoutReplayingMutations(t *testing.T)
 	}
 	if got := accepted.Load(); got != 2 {
 		t.Fatalf("accepted connections = %d, want probe plus one reusable unary connection", got)
+	}
+}
+
+func TestReusableUnaryCloseInterruptsLostMutationResponseWithoutReplay(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "lost-response.sock")
+	listener, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	received := make(chan struct{})
+	var requests atomic.Int64
+	go func() {
+		probe, _ := listener.Accept()
+		if probe != nil {
+			_ = probe.Close()
+		}
+		conn, _ := listener.Accept()
+		if conn == nil {
+			return
+		}
+		defer conn.Close()
+		if _, readErr := protocol.ReadFrame(conn, gapdb.DefaultMaxFrameBytes); readErr == nil {
+			requests.Add(1)
+			close(received)
+		}
+		var one [1]byte
+		_, _ = conn.Read(one[:])
+	}()
+	client, err := gapdb.Dial(path, gapdb.ClientOptions{ReuseUnaryConnection: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := make(chan error, 1)
+	go func() {
+		_, callErr := client.Put(context.Background(), "authority", []byte("accepted"), nil, gapdb.AckDurable)
+		result <- callErr
+	}()
+	select {
+	case <-received:
+	case <-time.After(time.Second):
+		t.Fatal("server did not receive mutation")
+	}
+	closed := make(chan error, 1)
+	go func() { closed <- client.Close() }()
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Close blocked behind an unresponsive unary call")
+	}
+	select {
+	case err := <-result:
+		var transport *gapdb.TransportError
+		if !errors.As(err, &transport) || !transport.Ambiguous {
+			t.Fatalf("mutation error = %#v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("mutation remained blocked after Close")
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("received mutation requests = %d, want exactly one", got)
+	}
+}
+
+func TestReusableUnaryCanceledWaiterDoesNotTransmitOrPoisonConnection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "queued-cancel.sock")
+	listener, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	firstReceived := make(chan protocol.Request, 1)
+	release := make(chan struct{})
+	var requests atomic.Int64
+	go func() {
+		probe, _ := listener.Accept()
+		if probe != nil {
+			_ = probe.Close()
+		}
+		conn, _ := listener.Accept()
+		if conn == nil {
+			return
+		}
+		defer conn.Close()
+		payload, readErr := protocol.ReadFrame(conn, gapdb.DefaultMaxFrameBytes)
+		if readErr != nil {
+			return
+		}
+		request, decodeErr := protocol.DecodeRequest(payload, gapdb.DefaultOptions().Limits)
+		if decodeErr != nil {
+			return
+		}
+		requests.Add(1)
+		firstReceived <- request
+		<-release
+		record := gapdb.NewRecord("first", []byte("value"), 1, nil)
+		response, _ := protocol.EncodeResponse(protocol.Response{SchemaVersion: protocol.SchemaVersion, OK: true, RequestID: request.RequestID, DatabaseID: "db", Operation: request.Operation, Result: protocol.GetResult{Record: record}})
+		_ = protocol.WriteFrame(conn, response, gapdb.DefaultMaxFrameBytes)
+	}()
+	client, err := gapdb.Dial(path, gapdb.ClientOptions{Timeout: time.Second, ReuseUnaryConnection: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	firstResult := make(chan error, 1)
+	go func() {
+		_, callErr := client.Get(context.Background(), "first")
+		firstResult <- callErr
+	}()
+	select {
+	case <-firstReceived:
+	case <-time.After(time.Second):
+		t.Fatal("first request not received")
+	}
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := client.Get(canceled, "second"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("queued canceled Get = %v", err)
+	}
+	close(release)
+	if err := <-firstResult; err != nil {
+		t.Fatalf("first Get was poisoned by canceled waiter: %v", err)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("transmitted requests = %d, want one", got)
+	}
+}
+
+func TestReusableUnaryReplacesPoisonedConnection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "replace.sock")
+	listener, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	served := make(chan error, 1)
+	var accepted atomic.Int64
+	go func() {
+		for connection := 0; connection < 3; connection++ {
+			conn, acceptErr := listener.Accept()
+			if acceptErr != nil {
+				served <- acceptErr
+				return
+			}
+			accepted.Add(1)
+			if connection == 0 {
+				_ = conn.Close()
+				continue
+			}
+			payload, readErr := protocol.ReadFrame(conn, gapdb.DefaultMaxFrameBytes)
+			if readErr != nil {
+				_ = conn.Close()
+				served <- readErr
+				return
+			}
+			if connection == 1 {
+				_ = conn.Close()
+				continue
+			}
+			request, decodeErr := protocol.DecodeRequest(payload, gapdb.DefaultOptions().Limits)
+			if decodeErr != nil {
+				_ = conn.Close()
+				served <- decodeErr
+				return
+			}
+			record := gapdb.NewRecord("key", []byte("value"), 1, nil)
+			response, encodeErr := protocol.EncodeResponse(protocol.Response{SchemaVersion: protocol.SchemaVersion, OK: true, RequestID: request.RequestID, DatabaseID: "db", Operation: request.Operation, Result: protocol.GetResult{Record: record}})
+			if encodeErr == nil {
+				encodeErr = protocol.WriteFrame(conn, response, gapdb.DefaultMaxFrameBytes)
+			}
+			_ = conn.Close()
+			served <- encodeErr
+			return
+		}
+	}()
+	client, err := gapdb.Dial(path, gapdb.ClientOptions{Timeout: time.Second, ReuseUnaryConnection: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if _, err := client.Get(t.Context(), "key"); err == nil {
+		t.Fatal("lost response was accepted")
+	}
+	record, err := client.Get(t.Context(), "key")
+	if err != nil || string(record.Value) != "value" {
+		t.Fatalf("replacement Get = %+v, %v", record, err)
+	}
+	if err := <-served; err != nil {
+		t.Fatal(err)
+	}
+	if got := accepted.Load(); got != 3 {
+		t.Fatalf("accepted connections = %d, want probe, poisoned, replacement", got)
 	}
 }
 
