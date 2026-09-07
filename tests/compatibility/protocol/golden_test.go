@@ -149,6 +149,32 @@ func TestRecoverySnapshotCandidateExtensionIsSeparateFromFrozenProtocolV1(t *tes
 			t.Fatalf("candidate extension authority token %q is absent", token)
 		}
 	}
+	var evidence struct {
+		SchemaVersion  int    `json:"schema_version"`
+		ExtensionID    string `json:"extension_id"`
+		Decision       string `json:"decision"`
+		ReleaseReady   bool   `json:"release_ready"`
+		Adopted        bool   `json:"adopted"`
+		Implementation struct {
+			SourceRevision string `json:"source_revision"`
+			SourceTree     string `json:"source_tree"`
+		} `json:"implementation"`
+		Authority struct {
+			Path   string `json:"path"`
+			SHA256 string `json:"sha256"`
+			Bytes  int    `json:"bytes"`
+		} `json:"authority"`
+	}
+	encoded, err := os.ReadFile(filepath.Join(root, "docs/evidence/candidates/recovery-snapshot-extension-v1.json"))
+	if err != nil || json.Unmarshal(encoded, &evidence) != nil {
+		t.Fatalf("read candidate evidence: %v", err)
+	}
+	digest := fmt.Sprintf("%x", sha256.Sum256(extension))
+	if evidence.SchemaVersion != 1 || evidence.ExtensionID != "recovery-snapshot-extension-v1" || evidence.Decision != "technical_candidate" || evidence.ReleaseReady || evidence.Adopted ||
+		evidence.Implementation.SourceRevision != "ed1c93eda06862438ba6a9250d185ef0537978f7" || evidence.Implementation.SourceTree != "100613a601282a761fd042e742063d71bacd2b2e" ||
+		evidence.Authority.Path != "docs/formats/recovery-snapshot-extension-v1.md" || evidence.Authority.SHA256 != digest || evidence.Authority.Bytes != len(extension) {
+		t.Fatalf("candidate extension evidence is not source/document bound: %+v", evidence)
+	}
 }
 
 func TestEveryStableErrorHasGoldenFixture(t *testing.T) {

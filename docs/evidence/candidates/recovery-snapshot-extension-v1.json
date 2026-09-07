@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "extension_id": "recovery-snapshot-extension-v1",
+  "decision": "technical_candidate",
+  "release_ready": false,
+  "adopted": false,
+  "implementation": {
+    "source_revision": "ed1c93eda06862438ba6a9250d185ef0537978f7",
+    "source_tree": "100613a601282a761fd042e742063d71bacd2b2e"
+  },
+  "authority": {
+    "path": "docs/formats/recovery-snapshot-extension-v1.md",
+    "sha256": "3208ac8e905cb121e24f704ae5ed9e0dbcfa34f3c4026acca297d89ff5b0511e",
+    "bytes": 1574
+  },
+  "request_golden": {
+    "path": "tests/compatibility/protocol/testdata/recovery-snapshot-extension-v1.request.json",
+    "sha256": "11df9f16621b36faad2d24d24ee6a63d72365e869cbfa8009cd5d93ab00fb2f8",
+    "bytes": 187
+  },
+  "success_frame_sha256": "3970dd41fcb1a3ade7147d8ef6fcbcca1279a9e5ff42c6ebf30fc019874438b4",
+  "qualification": {
+    "full_tests": "pass",
+    "focused_race": "pass",
+    "vet": "pass",
+    "staticcheck": "pass"
+  }
+}
