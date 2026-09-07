@@ -160,6 +160,39 @@ func TestOverwriteOnlyBatchDoesNotCopyOrReplaceOrderedIndex(t *testing.T) {
 	}
 }
 
+func TestAscendingSingletonMembershipGrowthIsAmortized(t *testing.T) {
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	records := make([]gapdb.Record, 100_000)
+	for index := range records {
+		records[index] = gapdb.NewRecord(fmt.Sprintf("m/%06d", index), nil, 1, nil)
+	}
+	limits := gapdb.DefaultOptions().Limits
+	limits.MaxHistoryEvents = 200_000
+	state, _ := newObservationState(t, clock.NewManual(now), newManualExpiryTimer(), limits, records, 1)
+	t.Cleanup(func() { closeState(t, state) })
+	backing := &state.orderedKeys[0]
+	reallocations := 0
+	started := time.Now()
+	for index := 0; index < 10_000; index++ {
+		if _, err := state.Put(t.Context(), fmt.Sprintf("z/%05d", index), nil, nil, gapdb.AckMemory); err != nil {
+			t.Fatal(err)
+		}
+		if current := &state.orderedKeys[0]; current != backing {
+			backing = current
+			reallocations++
+		}
+	}
+	if elapsed := time.Since(started); elapsed > 4*time.Second {
+		t.Fatalf("10k ascending singleton insertions took %s", elapsed)
+	}
+	if reallocations > 2 {
+		t.Fatalf("ordered index reallocated %d times, want geometric growth", reallocations)
+	}
+	if len(state.orderedKeys) != 110_000 || state.orderedKeys[len(state.orderedKeys)-1] != "z/09999" {
+		t.Fatalf("tail growth census = %d/%q", len(state.orderedKeys), state.orderedKeys[len(state.orderedKeys)-1])
+	}
+}
+
 func TestLargeDescendingMembershipBatchesStayWithinAcknowledgementBudget(t *testing.T) {
 	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
 	records := make([]gapdb.Record, 100_000)

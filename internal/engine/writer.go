@@ -170,7 +170,7 @@ func (state *DatabaseState) execute(batch gapdb.Batch, single singleOperation, p
 	// persisting a revision. The writer goroutine serializes mutations, while
 	// the brief read lock in planOrderedKeys copies the current index for
 	// O(n+k log k) delta merging without blocking readers during the merge.
-	nextOrderedKeys := state.planOrderedKeys(batch.Mutations)
+	orderedKeys := state.planOrderedKeys(batch.Mutations)
 
 	// Reviewer invariant: this is the engine's sole revision-allocation call site.
 	revision, err := state.allocator.Next()
@@ -222,8 +222,10 @@ func (state *DatabaseState) execute(batch gapdb.Batch, single singleOperation, p
 	for index, mutation := range batch.Mutations {
 		events[index] = state.apply(revision, uint32(index), mutation, single)
 	}
-	if nextOrderedKeys != nil {
-		state.orderedKeys = nextOrderedKeys
+	if orderedKeys.replacement != nil {
+		state.orderedKeys = orderedKeys.replacement
+	} else if len(orderedKeys.tail) != 0 {
+		state.orderedKeys = append(state.orderedKeys, orderedKeys.tail...)
 	}
 	state.current = revision
 	if durableThrough > state.durableThrough {
@@ -416,24 +418,55 @@ func (state *DatabaseState) apply(revision gapdb.Revision, order uint32, mutatio
 	return gapdb.ChangeEvent{Revision: revision, Order: order, Kind: gapdb.ChangePut, Key: mutation.Key, Record: &clone}
 }
 
-func (state *DatabaseState) planOrderedKeys(mutations []gapdb.Mutation) []string {
+type orderedKeyPlan struct {
+	replacement []string
+	tail        []string
+}
+
+func (state *DatabaseState) planOrderedKeys(mutations []gapdb.Mutation) orderedKeyPlan {
 	state.mu.RLock()
 	changed := false
+	bulkMerge := false
+	additions := make([]string, 0, len(mutations))
+	last := ""
+	if len(state.orderedKeys) != 0 {
+		last = state.orderedKeys[len(state.orderedKeys)-1]
+	}
 	for _, mutation := range mutations {
 		index := sort.SearchStrings(state.orderedKeys, mutation.Key)
 		exists := index < len(state.orderedKeys) && state.orderedKeys[index] == mutation.Key
-		if (mutation.Kind == gapdb.MutationDelete && exists) || (mutation.Kind == gapdb.MutationPut && !exists) {
+		if mutation.Kind == gapdb.MutationDelete && exists {
 			changed = true
-			break
+			bulkMerge = true
+		}
+		if mutation.Kind == gapdb.MutationPut && !exists {
+			changed = true
+			additions = append(additions, mutation.Key)
+			if last != "" && mutation.Key <= last {
+				bulkMerge = true
+			}
 		}
 	}
 	if !changed {
 		state.mu.RUnlock()
-		return nil
+		return orderedKeyPlan{}
+	}
+	if !bulkMerge {
+		sort.Strings(additions)
+		if len(state.orderedKeys)+len(additions) <= cap(state.orderedKeys) {
+			state.mu.RUnlock()
+			return orderedKeyPlan{tail: additions}
+		}
+		capacity := max(16, cap(state.orderedKeys)*2, len(state.orderedKeys)+len(additions))
+		replacement := make([]string, len(state.orderedKeys), capacity)
+		copy(replacement, state.orderedKeys)
+		replacement = append(replacement, additions...)
+		state.mu.RUnlock()
+		return orderedKeyPlan{replacement: replacement}
 	}
 	base := append([]string(nil), state.orderedKeys...)
 	state.mu.RUnlock()
-	return mergeOrderedKeyDelta(base, mutations)
+	return orderedKeyPlan{replacement: mergeOrderedKeyDelta(base, mutations)}
 }
 
 func mergeOrderedKeyDelta(base []string, mutations []gapdb.Mutation) []string {
