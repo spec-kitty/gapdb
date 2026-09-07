@@ -147,5 +147,16 @@ func TestReadRecoverySnapshotIsStableSortedBoundedAndCopySafe(t *testing.T) {
 	}
 }
 
+func TestRecoverySnapshotPreallocationIsBoundedByResponseBytes(t *testing.T) {
+	request := gapdb.RecoverySnapshotRequest{Prefix: "spk/", MaxRecords: gapdb.HardMaxRecoveryRecords, MaxBytes: 1}
+	if got := recoverySnapshotCapacity(request, gapdb.HardMaxRecoveryRecords); got != 0 {
+		t.Fatalf("tiny response capacity = %d, want 0", got)
+	}
+	request.MaxBytes = 128
+	if got := recoverySnapshotCapacity(request, gapdb.HardMaxRecoveryRecords); got >= request.MaxRecords {
+		t.Fatalf("byte-bound capacity = %d, want less than record bound %d", got, request.MaxRecords)
+	}
+}
+
 // Compile-time coverage that the production WAL satisfies the engine seam.
 var _ CommitLog = (*persist.WAL)(nil)

@@ -257,7 +257,8 @@ func (server *Server) serveConnection(conn net.Conn) {
 		}
 		if request.Operation == protocol.OperationReadRecoverySnapshot {
 			if !server.acquireRecoverySnapshot() {
-				_ = server.writeFailure(conn, request.Operation, request.RequestID, &gapdb.Error{Code: gapdb.CodeServerBusy, Message: "The bounded recovery snapshot slot is active.", Retry: gapdb.RetryImmediate, SafeActions: []gapdb.SafeAction{gapdb.ActionRetryWithBackoff, gapdb.ActionAbort}})
+				active, maximum, depth := len(server.clients), cap(server.clients), server.runtime.Status().QueueDepth
+				_ = server.writeFailure(conn, request.Operation, request.RequestID, &gapdb.Error{Code: gapdb.CodeServerBusy, Message: "The bounded recovery snapshot slot is active.", Retry: gapdb.RetryImmediate, ActiveClients: &active, MaximumClients: &maximum, QueueDepth: &depth, SafeActions: []gapdb.SafeAction{gapdb.ActionRetryWithBackoff, gapdb.ActionAbort}})
 				continue
 			}
 			err := func() error {

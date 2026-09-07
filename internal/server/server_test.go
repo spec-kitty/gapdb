@@ -94,6 +94,17 @@ func TestRecoverySnapshotUsesBinarySuccessAndStructuredStaleFailure(t *testing.T
 	if _, err := client.ReadRecoverySnapshot(t.Context(), request); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeScanStale}) {
 		t.Fatalf("stale snapshot = %v", err)
 	}
+
+	tiny := request
+	tiny.ExpectedRevision = status.CurrentRevision
+	tiny.MaxBytes = 1
+	if _, err := client.ReadRecoverySnapshot(t.Context(), tiny); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeFrameTooLarge}) {
+		t.Fatalf("tiny bounded snapshot = %v, want FRAME_TOO_LARGE", err)
+	}
+	tiny.ExpectedRevision--
+	if _, err := client.ReadRecoverySnapshot(t.Context(), tiny); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeScanStale}) {
+		t.Fatalf("tiny stale snapshot = %v, want SCAN_STALE", err)
+	}
 }
 
 func TestReusableUnaryCorrelatesConcurrentRequests(t *testing.T) {

@@ -84,7 +84,7 @@ func (c *Client) ReadRecoverySnapshot(ctx context.Context, request RecoverySnaps
 		return RecoverySnapshotResult{}, err
 	}
 	c.applyDeadline(ctx, conn)
-	payload, err := readClientFrame(conn, request.MaxBytes)
+	payload, err := readRecoveryClientFrame(conn, request.MaxBytes, c.limits.MaxFrameBytes)
 	if err != nil {
 		return RecoverySnapshotResult{}, &TransportError{Operation: req.Operation, SocketPath: c.socketPath, Ambiguous: true, Cause: err}
 	}
@@ -96,6 +96,38 @@ func (c *Client) ReadRecoverySnapshot(ctx context.Context, request RecoverySnaps
 		return RecoverySnapshotResult{}, c.invalidResult(req.Operation, err)
 	}
 	return result, nil
+}
+
+// readRecoveryClientFrame distinguishes the binary success frame before
+// choosing its bound. A rejected recovery request still uses the ordinary
+// correlated JSON error envelope, which is bounded by MaxFrameBytes rather
+// than by the caller's (possibly tiny) success budget.
+func readRecoveryClientFrame(reader io.Reader, successMaximum, failureMaximum int) ([]byte, error) {
+	var prefix [4]byte
+	if _, err := io.ReadFull(reader, prefix[:]); err != nil {
+		return nil, err
+	}
+	length := uint64(binary.BigEndian.Uint32(prefix[:]))
+	absoluteMaximum := max(successMaximum, failureMaximum)
+	if length == 0 || length > uint64(absoluteMaximum) || length > uint64(maxInt()) {
+		return nil, fmt.Errorf("invalid frame length %d", length)
+	}
+	discriminatorSize := min(int(length), len(recoverySnapshotMagic))
+	discriminator := make([]byte, discriminatorSize)
+	if _, err := io.ReadFull(reader, discriminator); err != nil {
+		return nil, err
+	}
+	maximum := failureMaximum
+	if len(discriminator) == len(recoverySnapshotMagic) && bytes.Equal(discriminator, recoverySnapshotMagic[:]) {
+		maximum = successMaximum
+	}
+	if length > uint64(maximum) {
+		return nil, fmt.Errorf("invalid frame length %d", length)
+	}
+	payload := make([]byte, int(length))
+	copy(payload, discriminator)
+	_, err := io.ReadFull(reader, payload[len(discriminator):])
+	return payload, err
 }
 
 func (c *Client) decodeRecoverySnapshotFailure(payload []byte, request wireRequest) error {
@@ -155,6 +187,15 @@ func EncodeRecoverySnapshot(result RecoverySnapshotResult, request RecoverySnaps
 			return nil, errors.New("recovery snapshot record is invalid")
 		}
 		previous = record.Key
+		recordBytes := uint64(4) + uint64(len(record.Key)) + 8 + 8 + 4 + uint64(len(record.Value))
+		remaining := uint64(request.MaxBytes - sha256.Size - payload.Len())
+		if recordBytes > remaining {
+			received := uint64(payload.Len()+sha256.Size) + recordBytes
+			if received > uint64(maxInt()) {
+				received = uint64(maxInt())
+			}
+			return nil, recoverySnapshotTooLarge(int(received), request.MaxBytes)
+		}
 		_ = binary.Write(&payload, binary.BigEndian, uint32(len(record.Key)))
 		payload.WriteString(record.Key)
 		_ = binary.Write(&payload, binary.BigEndian, uint64(record.Revision))
@@ -169,9 +210,6 @@ func EncodeRecoverySnapshot(result RecoverySnapshotResult, request RecoverySnaps
 		_ = binary.Write(&payload, binary.BigEndian, expires)
 		_ = binary.Write(&payload, binary.BigEndian, uint32(len(record.Value)))
 		payload.Write(record.Value)
-		if payload.Len()+sha256.Size > request.MaxBytes {
-			return nil, recoverySnapshotTooLarge(payload.Len()+sha256.Size, request.MaxBytes)
-		}
 	}
 	digest := sha256.Sum256(payload.Bytes())
 	payload.Write(digest[:])
