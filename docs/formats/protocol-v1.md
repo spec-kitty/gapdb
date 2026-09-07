@@ -84,7 +84,10 @@ CLI machine envelope.
 | `max_history_events` | 100,000 | 1,000,000 |
 | `max_history_bytes` | 64 MiB | 1 GiB |
 
-Every limit is positive. Batch/scan bytes cannot exceed frame bytes, watch
+Every limit is positive. `max_frame_bytes` has a 2 KiB minimum so the owner can
+always return a structured error correlated with the largest legal, maximally
+JSON-escaped request ID; it never closes a successfully decoded unary request
+solely because its response is too large. Batch/scan bytes cannot exceed frame bytes, watch
 clients cannot exceed total clients, and retained history cannot be smaller
 than one watch buffer.
 

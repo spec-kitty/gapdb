@@ -19,7 +19,7 @@ import (
 const (
 	recordedPerformanceCommit = "3a98149c005031a77a85c42c04caae7073b80dad"
 	recordedCrashCommit       = "d34eadaea72b5763e0270472635e03423f7bffcc"
-	recordedProtocolCommit    = "cd86bcfb34392de28996f5537c4c0afd0fef12a3"
+	recordedProtocolCommit    = "1527eb112acf14908b46c6d84b701d4c77d2b560"
 	recordedConfigSHA256      = "8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4"
 )
 
