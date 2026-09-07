@@ -166,6 +166,11 @@ func (state *DatabaseState) execute(batch gapdb.Batch, single singleOperation, p
 	if predicateErr != nil {
 		return CommitResult{}, predicateErr
 	}
+	// Plan the immutable ordered-index replacement before allocating or
+	// persisting a revision. The writer goroutine serializes mutations, while
+	// the brief read lock in planOrderedKeys copies the current index for
+	// O(n+k log k) delta merging without blocking readers during the merge.
+	nextOrderedKeys := state.planOrderedKeys(batch.Mutations)
 
 	// Reviewer invariant: this is the engine's sole revision-allocation call site.
 	revision, err := state.allocator.Next()
@@ -217,6 +222,7 @@ func (state *DatabaseState) execute(batch gapdb.Batch, single singleOperation, p
 	for index, mutation := range batch.Mutations {
 		events[index] = state.apply(revision, uint32(index), mutation, single)
 	}
+	state.orderedKeys = nextOrderedKeys
 	state.current = revision
 	if durableThrough > state.durableThrough {
 		state.durableThrough = durableThrough
@@ -396,42 +402,60 @@ func effectFor(mutation gapdb.Mutation, operation singleOperation) persist.Effec
 
 func (state *DatabaseState) apply(revision gapdb.Revision, order uint32, mutation gapdb.Mutation, operation singleOperation) gapdb.ChangeEvent {
 	if mutation.Kind == gapdb.MutationDelete {
-		if _, exists := state.records[mutation.Key]; exists {
-			delete(state.records, mutation.Key)
-			state.removeOrderedKey(mutation.Key)
-		}
+		delete(state.records, mutation.Key)
 		if operation == operationExpiry {
 			return gapdb.ChangeEvent{Revision: revision, Order: order, Kind: gapdb.ChangeExpire, Key: mutation.Key}
 		}
 		return gapdb.ChangeEvent{Revision: revision, Order: order, Kind: gapdb.ChangeDelete, Key: mutation.Key}
 	}
 	record := gapdb.NewRecord(mutation.Key, mutation.Value, revision, mutation.ExpiresAt)
-	if _, exists := state.records[mutation.Key]; !exists {
-		state.insertOrderedKey(mutation.Key)
-	}
 	state.records[mutation.Key] = record
 	clone := record.Clone()
 	return gapdb.ChangeEvent{Revision: revision, Order: order, Kind: gapdb.ChangePut, Key: mutation.Key, Record: &clone}
 }
 
-// insertOrderedKey and removeOrderedKey run only while the writer owns
-// state.mu. They keep prefix scans cursor-seekable without changing the map's
-// O(1) exact-read behavior.
-func (state *DatabaseState) insertOrderedKey(key string) {
-	index := sort.SearchStrings(state.orderedKeys, key)
-	state.orderedKeys = append(state.orderedKeys, "")
-	copy(state.orderedKeys[index+1:], state.orderedKeys[index:])
-	state.orderedKeys[index] = key
+func (state *DatabaseState) planOrderedKeys(mutations []gapdb.Mutation) []string {
+	state.mu.RLock()
+	base := append([]string(nil), state.orderedKeys...)
+	state.mu.RUnlock()
+	return mergeOrderedKeyDelta(base, mutations)
 }
 
-func (state *DatabaseState) removeOrderedKey(key string) {
-	index := sort.SearchStrings(state.orderedKeys, key)
-	if index == len(state.orderedKeys) || state.orderedKeys[index] != key {
-		return
+func mergeOrderedKeyDelta(base []string, mutations []gapdb.Mutation) []string {
+	removed := make(map[string]struct{}, len(mutations))
+	additions := make([]string, 0, len(mutations))
+	for _, mutation := range mutations {
+		index := sort.SearchStrings(base, mutation.Key)
+		exists := index < len(base) && base[index] == mutation.Key
+		if mutation.Kind == gapdb.MutationDelete {
+			if exists {
+				removed[mutation.Key] = struct{}{}
+			}
+			continue
+		}
+		if !exists {
+			additions = append(additions, mutation.Key)
+		}
 	}
-	copy(state.orderedKeys[index:], state.orderedKeys[index+1:])
-	state.orderedKeys[len(state.orderedKeys)-1] = ""
-	state.orderedKeys = state.orderedKeys[:len(state.orderedKeys)-1]
+	sort.Strings(additions)
+	result := make([]string, 0, len(base)+len(additions)-len(removed))
+	baseIndex, additionIndex := 0, 0
+	for baseIndex < len(base) || additionIndex < len(additions) {
+		if baseIndex < len(base) {
+			if _, skip := removed[base[baseIndex]]; skip {
+				baseIndex++
+				continue
+			}
+		}
+		if additionIndex == len(additions) || baseIndex < len(base) && base[baseIndex] < additions[additionIndex] {
+			result = append(result, base[baseIndex])
+			baseIndex++
+			continue
+		}
+		result = append(result, additions[additionIndex])
+		additionIndex++
+	}
+	return result
 }
 
 func cloneEvents(events []gapdb.ChangeEvent) []gapdb.ChangeEvent {

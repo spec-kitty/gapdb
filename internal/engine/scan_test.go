@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -101,6 +102,103 @@ func TestScanPrefixFirstPageAllocationsAreBoundedByPageNotDatabase(t *testing.T)
 	}
 	if allocations > 2_000 {
 		t.Fatalf("first-page allocations = %.0f, want page-bounded work", allocations)
+	}
+}
+
+func TestOrderedKeyDeltaLargeAdversarialBatchIsBounded(t *testing.T) {
+	base := make([]string, 100_000)
+	for index := range base {
+		base[index] = fmt.Sprintf("m/%06d", index)
+	}
+	mutations := make([]gapdb.Mutation, 0, 10_000)
+	for index := 3_332; index >= 0; index-- {
+		mutations = append(mutations, gapdb.NewPutMutation(fmt.Sprintf("a/%05d", index), nil, gapdb.Condition{Kind: gapdb.ConditionAny}, nil))
+	}
+	for index := 3_332; index >= 0; index-- {
+		mutations = append(mutations, gapdb.NewPutMutation(fmt.Sprintf("m/%06d/x", index*20+1), nil, gapdb.Condition{Kind: gapdb.ConditionAny}, nil))
+	}
+	for index := 0; index < 3_334; index++ {
+		mutations = append(mutations, gapdb.Mutation{Kind: gapdb.MutationDelete, Key: fmt.Sprintf("m/%06d", index*20)})
+	}
+	started := time.Now()
+	result := mergeOrderedKeyDelta(base, mutations)
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("100k-key/10k-delta merge took %s", elapsed)
+	}
+	if len(result) != len(base)+6_666-3_334 || !sort.StringsAreSorted(result) {
+		t.Fatalf("merged key census length/sort = %d/%v", len(result), sort.StringsAreSorted(result))
+	}
+	for index := 1; index < len(result); index++ {
+		if result[index-1] == result[index] {
+			t.Fatalf("duplicate ordered key %q", result[index])
+		}
+	}
+}
+
+func TestLargeDescendingMembershipBatchesStayWithinAcknowledgementBudget(t *testing.T) {
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	records := make([]gapdb.Record, 100_000)
+	for index := range records {
+		records[index] = gapdb.NewRecord(fmt.Sprintf("m/%06d", index), nil, 1, nil)
+	}
+	limits := gapdb.DefaultOptions().Limits
+	limits.MaxBatchOperations = 10_000
+	state, _ := newObservationState(t, clock.NewManual(now), newManualExpiryTimer(), limits, records, 1)
+	t.Cleanup(func() { closeState(t, state) })
+	stopReader := make(chan struct{})
+	readerReady := make(chan struct{})
+	readerResult := make(chan error, 1)
+	go func() {
+		if _, err := state.Get("m/050000"); err != nil {
+			readerResult <- err
+			return
+		}
+		close(readerReady)
+		for {
+			select {
+			case <-stopReader:
+				readerResult <- nil
+				return
+			default:
+				if _, err := state.Get("m/050000"); err != nil {
+					readerResult <- err
+					return
+				}
+			}
+		}
+	}()
+	<-readerReady
+
+	insertions := make([]gapdb.Mutation, 0, 10_000)
+	for index := 9_999; index >= 0; index-- {
+		insertions = append(insertions, gapdb.NewPutMutation(fmt.Sprintf("a/%05d", index), nil, gapdb.Condition{Kind: gapdb.ConditionAny}, nil))
+	}
+	started := time.Now()
+	inserted, err := state.AtomicBatch(t.Context(), gapdb.Batch{Ack: gapdb.AckMemory, Mutations: insertions})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("descending 10k-key insertion acknowledgement took %s", elapsed)
+	}
+
+	deletions := make([]gapdb.Mutation, 0, 10_000)
+	for index := 9_999; index >= 0; index-- {
+		deletions = append(deletions, gapdb.NewDeleteMutation(fmt.Sprintf("a/%05d", index), inserted.Revision))
+	}
+	started = time.Now()
+	if _, err := state.AtomicBatch(t.Context(), gapdb.Batch{Ack: gapdb.AckMemory, Mutations: deletions}); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("descending 10k-key deletion acknowledgement took %s", elapsed)
+	}
+	if len(state.orderedKeys) != len(records) {
+		t.Fatalf("ordered key census after insert/delete = %d", len(state.orderedKeys))
+	}
+	close(stopReader)
+	if err := <-readerResult; err != nil {
+		t.Fatalf("concurrent exact reader: %v", err)
 	}
 }
 
