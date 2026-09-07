@@ -5,10 +5,6 @@ import (
 	"fmt"
 )
 
-// ReadManyFrameReserveBytes bounds the unary envelope around a read-many
-// result, including the maximum request ID and fixed database identity.
-const ReadManyFrameReserveBytes = 1024
-
 // ValidateReadManyResult verifies the cross-field snapshot and resource
 // invariants shared by the engine, canonical protocol codec, and public client.
 func ValidateReadManyResult(result ReadManyResult, limits Limits) error {
@@ -49,12 +45,8 @@ func ValidateReadManyResult(result ReadManyResult, limits Limits) error {
 	if err != nil {
 		return fmt.Errorf("encode read-many result: %w", err)
 	}
-	maximum := limits.MaxScanBytes
-	if frameMaximum := limits.MaxFrameBytes - ReadManyFrameReserveBytes; maximum <= 0 || frameMaximum < maximum {
-		maximum = frameMaximum
-	}
-	if maximum <= 0 || len(encoded) > maximum {
-		return &Error{Code: CodeFrameTooLarge, Message: "Exact read response exceeds the configured wire limit.", Retry: RetryNever, ReceivedBytes: len(encoded), MaximumBytes: maximum, SafeActions: []SafeAction{ActionReduceRequest, ActionAbort}}
+	if limits.MaxScanBytes <= 0 || len(encoded) > limits.MaxScanBytes {
+		return &Error{Code: CodeFrameTooLarge, Message: "Exact read response exceeds the configured scan limit.", Retry: RetryNever, ReceivedBytes: len(encoded), MaximumBytes: limits.MaxScanBytes, SafeActions: []SafeAction{ActionReduceRequest, ActionAbort}}
 	}
 	return nil
 }

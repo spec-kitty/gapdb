@@ -291,6 +291,33 @@ func (server *Server) writeResponse(conn net.Conn, response protocol.Response) e
 	if err != nil {
 		return err
 	}
+	if len(payload) > server.limits.MaxFrameBytes {
+		// Frame admission belongs at the fully correlated wire boundary. A
+		// result-only estimate cannot safely account for JSON escaping in the
+		// echoed request ID or for the rest of the response envelope.
+		failure := &gapdb.Error{
+			Code:          gapdb.CodeFrameTooLarge,
+			Message:       "Protocol response exceeds the configured frame limit.",
+			Retry:         gapdb.RetryNever,
+			ReceivedBytes: len(payload),
+			MaximumBytes:  server.limits.MaxFrameBytes,
+			SafeActions:   []gapdb.SafeAction{gapdb.ActionReduceRequest, gapdb.ActionAbort},
+		}
+		payload, err = protocol.EncodeResponse(protocol.Response{
+			SchemaVersion: protocol.SchemaVersion,
+			OK:            false,
+			RequestID:     response.RequestID,
+			DatabaseID:    response.DatabaseID,
+			Operation:     response.Operation,
+			Error:         failure,
+		})
+		if err != nil {
+			return err
+		}
+		if len(payload) > server.limits.MaxFrameBytes {
+			return failure
+		}
+	}
 	if err := faultfs.Checkpoint(server.fs, faultfs.PointResponsePublish, faultfs.Before); err != nil {
 		return err
 	}
