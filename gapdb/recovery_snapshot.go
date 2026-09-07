@@ -151,8 +151,15 @@ func EncodeRecoverySnapshot(result RecoverySnapshotResult, request RecoverySnaps
 	if err := ValidateRecoverySnapshotRequest(request, Limits{MaxKeyBytes: HardMaxKeyBytes}); err != nil {
 		return nil, err
 	}
-	if result.DatabaseID == "" || result.RequestID == "" || result.ObservedRevision != request.ExpectedRevision || result.AsOf.IsZero() || len(result.Records) > request.MaxRecords || uint64(len(result.Records)) > math.MaxUint32 {
+	if result.ObservedRevision != request.ExpectedRevision || result.AsOf.IsZero() || len(result.Records) > request.MaxRecords || uint64(len(result.Records)) > math.MaxUint32 {
 		return nil, errors.New("recovery snapshot identity is incomplete")
+	}
+	headerBytes, err := recoverySnapshotHeaderBytes(result.DatabaseID, result.RequestID)
+	if err != nil {
+		return nil, err
+	}
+	if headerBytes > request.MaxBytes {
+		return nil, recoverySnapshotTooLarge(headerBytes, request.MaxBytes)
 	}
 	asOfNS, ok := recoveryTimeNanoseconds(result.AsOf)
 	if !ok {
@@ -214,6 +221,19 @@ func EncodeRecoverySnapshot(result RecoverySnapshotResult, request RecoverySnaps
 	digest := sha256.Sum256(payload.Bytes())
 	payload.Write(digest[:])
 	return payload.Bytes(), nil
+}
+
+func recoverySnapshotHeaderBytes(databaseID, requestID string) (int, error) {
+	for _, identity := range []string{databaseID, requestID} {
+		if identity == "" || len(identity) > math.MaxUint16 || !utf8.ValidString(identity) {
+			return 0, errors.New("recovery snapshot identity is unbounded")
+		}
+	}
+	size := uint64(len(recoverySnapshotMagic)) + 2 + uint64(len(databaseID)) + 2 + uint64(len(requestID)) + 8 + 8 + 4 + sha256.Size
+	if size > uint64(maxInt()) {
+		return 0, errors.New("recovery snapshot header is unbounded")
+	}
+	return int(size), nil
 }
 
 // DecodeRecoverySnapshot strictly decodes and validates one success frame.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -108,6 +109,20 @@ func TestRecoverySnapshotCodecAdmitsEmptySnapshotAndRefusesExpiredMembership(t *
 	tiny.MaxBytes = 32
 	if _, err := EncodeRecoverySnapshot(empty, tiny); err == nil {
 		t.Fatal("empty snapshot header escaped the complete-frame byte budget")
+	}
+}
+
+func TestRecoverySnapshotHeaderBudgetRefusesBeforeLargeIdentityAllocation(t *testing.T) {
+	large := strings.Repeat("x", math.MaxUint16)
+	request := RecoverySnapshotRequest{Prefix: "spk/", MaxRecords: 1, MaxBytes: 1}
+	result := RecoverySnapshotResult{DatabaseID: large, RequestID: large, AsOf: time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)}
+	allocations := testing.AllocsPerRun(100, func() {
+		if _, err := EncodeRecoverySnapshot(result, request); err == nil {
+			panic("large identity escaped tiny header budget")
+		}
+	})
+	if allocations > 2 {
+		t.Fatalf("pre-rejected header allocated %.1f objects; buffer/header writes occurred before refusal", allocations)
 	}
 }
 
