@@ -52,33 +52,40 @@ func (state *DatabaseState) ScanPrefix(prefix string, limit int, encodedCursor s
 		}
 		asOf = cursor.asOf
 	}
-	records := make([]gapdb.Record, 0)
-	for key, record := range state.records {
-		if strings.HasPrefix(key, prefix) && (encodedCursor == "" || key > cursor.lastKey) && !recordExpired(record, asOf) {
-			records = append(records, record.Clone())
-		}
-	}
-	state.mu.RUnlock()
-	sort.Slice(records, func(i, j int) bool { return records[i].Key < records[j].Key })
-
 	page := gapdb.ScanPage{ObservedRevision: observed, AsOf: asOf.UTC()}
 	used := 0
-	for index, record := range records {
+	start := sort.Search(len(state.orderedKeys), func(index int) bool {
+		if encodedCursor != "" {
+			return state.orderedKeys[index] > cursor.lastKey
+		}
+		return state.orderedKeys[index] >= prefix
+	})
+	for index := start; index < len(state.orderedKeys); index++ {
+		key := state.orderedKeys[index]
+		if !strings.HasPrefix(key, prefix) {
+			break
+		}
+		record, exists := state.records[key]
+		if !exists {
+			state.mu.RUnlock()
+			return gapdb.ScanPage{}, internalFailure("engine-ordered-key-index", false, nil)
+		}
+		if recordExpired(record, asOf) {
+			continue
+		}
 		bytes := scanRecordBytes(record)
 		if len(page.Records) == limit || used+bytes > state.limits.MaxScanBytes {
 			if len(page.Records) == 0 {
+				state.mu.RUnlock()
 				return gapdb.ScanPage{}, &gapdb.Error{Code: gapdb.CodeFrameTooLarge, Message: "A scan record exceeds the configured page byte limit.", Retry: gapdb.RetryNever, ReceivedBytes: bytes, MaximumBytes: state.limits.MaxScanBytes, SafeActions: []gapdb.SafeAction{gapdb.ActionReduceRequest, gapdb.ActionAbort}}
 			}
 			page.Truncated = true
 			break
 		}
-		page.Records = append(page.Records, record)
+		page.Records = append(page.Records, record.Clone())
 		used += bytes
-		if index+1 < len(records) && len(page.Records) == limit {
-			page.Truncated = true
-			break
-		}
 	}
+	state.mu.RUnlock()
 	if page.Truncated {
 		page.Cursor = state.encodeScanCursor(scanCursor{prefix: prefix, lastKey: page.Records[len(page.Records)-1].Key, revision: observed, asOf: asOf})
 	}

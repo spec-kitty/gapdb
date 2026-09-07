@@ -2,6 +2,7 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -53,6 +54,53 @@ func TestScanPrefixOrdersBoundsAndReusesCursorAsOf(t *testing.T) {
 	}
 	if len(second.Records) != 2 || second.Records[0].Key != "p/b" || second.Records[1].Key != "p/é" || second.AsOf != first.AsOf || second.ObservedRevision != first.ObservedRevision {
 		t.Fatalf("continuation = %+v", second)
+	}
+}
+
+func TestScanPrefixOrderedIndexTracksRecoveryInsertUpdateAndDelete(t *testing.T) {
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	records := []gapdb.Record{
+		gapdb.NewRecord("p/z", []byte("z"), 1, nil),
+		gapdb.NewRecord("p/b", []byte("b"), 1, nil),
+	}
+	state, _ := newObservationState(t, clock.NewManual(now), newManualExpiryTimer(), gapdb.Limits{}, records, 1)
+	t.Cleanup(func() { closeState(t, state) })
+	initial, err := state.ScanPrefix("p/", 10, "")
+	if err != nil || len(initial.Records) != 2 || initial.Records[0].Key != "p/b" || initial.Records[1].Key != "p/z" {
+		t.Fatalf("recovered index scan = %+v, %v", initial, err)
+	}
+	if _, err := state.Put(t.Context(), "p/a", []byte("a"), nil, gapdb.AckMemory); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := state.Put(t.Context(), "p/z", []byte("new-z"), nil, gapdb.AckMemory); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := state.DeleteIfRevision(t.Context(), "p/b", 1, gapdb.AckMemory); err != nil {
+		t.Fatal(err)
+	}
+	page, err := state.ScanPrefix("p/", 10, "")
+	if err != nil || len(page.Records) != 2 || page.Records[0].Key != "p/a" || page.Records[1].Key != "p/z" || string(page.Records[1].Value) != "new-z" {
+		t.Fatalf("mutated index scan = %+v, %v", page, err)
+	}
+}
+
+func TestScanPrefixFirstPageAllocationsAreBoundedByPageNotDatabase(t *testing.T) {
+	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
+	records := make([]gapdb.Record, 10_000)
+	for index := range records {
+		records[index] = gapdb.NewRecord(fmt.Sprintf("p/%05d", index), []byte("value"), 1, nil)
+	}
+	state, _ := newObservationState(t, clock.NewManual(now), newManualExpiryTimer(), gapdb.Limits{}, records, 1)
+	t.Cleanup(func() { closeState(t, state) })
+	var scanErr error
+	allocations := testing.AllocsPerRun(5, func() {
+		_, scanErr = state.ScanPrefix("p/", 500, "")
+	})
+	if scanErr != nil {
+		t.Fatal(scanErr)
+	}
+	if allocations > 2_000 {
+		t.Fatalf("first-page allocations = %.0f, want page-bounded work", allocations)
 	}
 }
 

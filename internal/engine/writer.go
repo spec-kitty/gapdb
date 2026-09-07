@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 	"unicode/utf8"
 
@@ -395,16 +396,42 @@ func effectFor(mutation gapdb.Mutation, operation singleOperation) persist.Effec
 
 func (state *DatabaseState) apply(revision gapdb.Revision, order uint32, mutation gapdb.Mutation, operation singleOperation) gapdb.ChangeEvent {
 	if mutation.Kind == gapdb.MutationDelete {
-		delete(state.records, mutation.Key)
+		if _, exists := state.records[mutation.Key]; exists {
+			delete(state.records, mutation.Key)
+			state.removeOrderedKey(mutation.Key)
+		}
 		if operation == operationExpiry {
 			return gapdb.ChangeEvent{Revision: revision, Order: order, Kind: gapdb.ChangeExpire, Key: mutation.Key}
 		}
 		return gapdb.ChangeEvent{Revision: revision, Order: order, Kind: gapdb.ChangeDelete, Key: mutation.Key}
 	}
 	record := gapdb.NewRecord(mutation.Key, mutation.Value, revision, mutation.ExpiresAt)
+	if _, exists := state.records[mutation.Key]; !exists {
+		state.insertOrderedKey(mutation.Key)
+	}
 	state.records[mutation.Key] = record
 	clone := record.Clone()
 	return gapdb.ChangeEvent{Revision: revision, Order: order, Kind: gapdb.ChangePut, Key: mutation.Key, Record: &clone}
+}
+
+// insertOrderedKey and removeOrderedKey run only while the writer owns
+// state.mu. They keep prefix scans cursor-seekable without changing the map's
+// O(1) exact-read behavior.
+func (state *DatabaseState) insertOrderedKey(key string) {
+	index := sort.SearchStrings(state.orderedKeys, key)
+	state.orderedKeys = append(state.orderedKeys, "")
+	copy(state.orderedKeys[index+1:], state.orderedKeys[index:])
+	state.orderedKeys[index] = key
+}
+
+func (state *DatabaseState) removeOrderedKey(key string) {
+	index := sort.SearchStrings(state.orderedKeys, key)
+	if index == len(state.orderedKeys) || state.orderedKeys[index] != key {
+		return
+	}
+	copy(state.orderedKeys[index:], state.orderedKeys[index+1:])
+	state.orderedKeys[len(state.orderedKeys)-1] = ""
+	state.orderedKeys = state.orderedKeys[:len(state.orderedKeys)-1]
 }
 
 func cloneEvents(events []gapdb.ChangeEvent) []gapdb.ChangeEvent {
