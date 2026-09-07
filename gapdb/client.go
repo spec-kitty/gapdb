@@ -17,8 +17,9 @@ import (
 const clientSchemaVersion = 1
 
 type ClientOptions struct {
-	Timeout time.Duration
-	Limits  Limits
+	Timeout              time.Duration
+	Limits               Limits
+	ReuseUnaryConnection bool
 }
 
 // TransportError is a local connection or framing error. Ambiguous reports
@@ -46,6 +47,9 @@ type Client struct {
 	mu         sync.Mutex
 	closed     bool
 	watches    map[uint64]*watchReservation
+	reuseUnary bool
+	unaryMu    sync.Mutex
+	unaryConn  net.Conn
 }
 
 type watchReservation struct {
@@ -70,7 +74,7 @@ func Dial(socketPath string, options ClientOptions) (*Client, error) {
 	if err := (Options{Limits: limits}).Validate(); err != nil {
 		return nil, err
 	}
-	client := &Client{socketPath: socketPath, timeout: options.Timeout, limits: limits, watches: make(map[uint64]*watchReservation)}
+	client := &Client{socketPath: socketPath, timeout: options.Timeout, limits: limits, watches: make(map[uint64]*watchReservation), reuseUnary: options.ReuseUnaryConnection}
 	conn, err := client.dial(context.Background())
 	if err != nil {
 		return nil, err
@@ -96,6 +100,13 @@ func (c *Client) Close() error {
 		if reservation.conn != nil {
 			_ = reservation.conn.Close()
 		}
+	}
+	c.unaryMu.Lock()
+	unaryConn := c.unaryConn
+	c.unaryConn = nil
+	c.unaryMu.Unlock()
+	if unaryConn != nil {
+		_ = unaryConn.Close()
 	}
 	return nil
 }
@@ -536,6 +547,9 @@ func (c *Client) unary(ctx context.Context, op string, args any) (wireResponse, 
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if c.reuseUnary {
+		return c.reusableUnary(ctx, op, args)
+	}
 	conn, err := c.dial(ctx)
 	if err != nil {
 		return wireResponse{}, err
@@ -546,6 +560,44 @@ func (c *Client) unary(ctx context.Context, op string, args any) (wireResponse, 
 		return wireResponse{}, err
 	}
 	return c.readResponse(ctx, conn, op, req.RequestID, true)
+}
+
+// reusableUnary serializes request/response pairs on one connection. The
+// owner protocol already permits multiple unary requests per connection; the
+// serialization prevents response ambiguity without widening mutation retry
+// semantics. Any transport or framing failure poisons and closes the
+// connection. A mutation is never replayed automatically.
+func (c *Client) reusableUnary(ctx context.Context, op string, args any) (wireResponse, error) {
+	c.unaryMu.Lock()
+	defer c.unaryMu.Unlock()
+	conn := c.unaryConn
+	if conn == nil {
+		var err error
+		conn, err = c.dial(ctx)
+		if err != nil {
+			return wireResponse{}, err
+		}
+		c.unaryConn = conn
+	}
+	req := wireRequest{clientSchemaVersion, c.requestID(ctx), op, args}
+	if err := c.writeRequest(ctx, conn, req); err != nil {
+		c.discardUnaryConnection(conn)
+		return wireResponse{}, err
+	}
+	response, err := c.readResponse(ctx, conn, op, req.RequestID, true)
+	var transport *TransportError
+	if errors.As(err, &transport) {
+		c.discardUnaryConnection(conn)
+	}
+	return response, err
+}
+
+// discardUnaryConnection is called only while unaryMu is held.
+func (c *Client) discardUnaryConnection(conn net.Conn) {
+	if c.unaryConn == conn {
+		c.unaryConn = nil
+	}
+	_ = conn.Close()
 }
 func (c *Client) requestID(ctx context.Context) string {
 	if id, ok := ctx.Value(requestIDKey{}).(string); ok {
@@ -669,6 +721,8 @@ func (c *Client) applyDeadline(ctx context.Context, conn net.Conn) {
 	}
 	if ok {
 		_ = conn.SetDeadline(deadline)
+	} else {
+		_ = conn.SetDeadline(time.Time{})
 	}
 }
 func (c *Client) invalidResult(op string, cause error) error {

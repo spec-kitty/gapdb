@@ -137,6 +137,86 @@ func TestDialFailureIsTransportError(t *testing.T) {
 	}
 }
 
+func TestClientCanReuseOneUnaryConnectionWithoutReplayingMutations(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "reuse.sock")
+	listener, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+
+	var accepted atomic.Int64
+	served := make(chan error, 1)
+	go func() {
+		probe, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			served <- acceptErr
+			return
+		}
+		accepted.Add(1)
+		_ = probe.Close()
+
+		conn, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			served <- acceptErr
+			return
+		}
+		accepted.Add(1)
+		defer conn.Close()
+		for revision := gapdb.Revision(1); revision <= 2; revision++ {
+			payload, readErr := protocol.ReadFrame(conn, gapdb.DefaultMaxFrameBytes)
+			if readErr != nil {
+				served <- readErr
+				return
+			}
+			request, decodeErr := protocol.DecodeRequest(payload, gapdb.DefaultOptions().Limits)
+			if decodeErr != nil {
+				served <- decodeErr
+				return
+			}
+			response := protocol.Response{
+				SchemaVersion: protocol.SchemaVersion,
+				OK:            true,
+				RequestID:     request.RequestID,
+				DatabaseID:    "00112233445566778899aabbccddeeff",
+				Operation:     request.Operation,
+				Result: gapdb.MutationResult{
+					Revision:               revision,
+					Ack:                    gapdb.AckMemory,
+					DurableThroughRevision: revision - 1,
+				},
+			}
+			encoded, encodeErr := protocol.EncodeResponse(response)
+			if encodeErr != nil {
+				served <- encodeErr
+				return
+			}
+			if writeErr := protocol.WriteFrame(conn, encoded, gapdb.DefaultMaxFrameBytes); writeErr != nil {
+				served <- writeErr
+				return
+			}
+		}
+		served <- nil
+	}()
+
+	client, err := gapdb.Dial(path, gapdb.ClientOptions{Timeout: time.Second, ReuseUnaryConnection: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	for index := 0; index < 2; index++ {
+		if _, err := client.Put(t.Context(), "key", []byte("value"), nil, gapdb.AckMemory); err != nil {
+			t.Fatalf("Put %d: %v", index, err)
+		}
+	}
+	if err := <-served; err != nil {
+		t.Fatal(err)
+	}
+	if got := accepted.Load(); got != 2 {
+		t.Fatalf("accepted connections = %d, want probe plus one reusable unary connection", got)
+	}
+}
+
 func TestReviewerCloseReservesPendingWatchBeforeHandshake(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "watch.sock")
 	listener, err := net.Listen("unix", path)
