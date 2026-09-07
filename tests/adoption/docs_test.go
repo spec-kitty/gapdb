@@ -19,6 +19,7 @@ import (
 const (
 	recordedPerformanceCommit = "3a98149c005031a77a85c42c04caae7073b80dad"
 	recordedCrashCommit       = "d34eadaea72b5763e0270472635e03423f7bffcc"
+	recordedProtocolCommit    = "1527eb112acf14908b46c6d84b701d4c77d2b560"
 	recordedConfigSHA256      = "8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4"
 )
 
@@ -393,7 +394,7 @@ func recordedReleaseAuthority() adoption.ReleaseAuthority {
 			"performance-raw":     {Kind: adoption.EvidenceRaw, SourceCommit: recordedPerformanceCommit, ConfigSHA256: recordedConfigSHA256, Command: performance, ObservedCount: 3},
 			"adoption-contract":   {Kind: adoption.EvidenceAdoption, SourceCommit: recordedPerformanceCommit, ConfigSHA256: recordedConfigSHA256, Command: adoptionRun, ObservedCount: adoption.ScenarioCount},
 			"crash-race":          {Kind: adoption.EvidenceCrash, SourceCommit: recordedCrashCommit, Command: crash, ObservedCount: 1_024},
-			"protocol-format":     {Kind: adoption.EvidenceProtocolDoc, SourceCommit: recordedPerformanceCommit, ConfigSHA256: recordedConfigSHA256, Command: doc, ObservedCount: 29},
+			"protocol-format":     {Kind: adoption.EvidenceProtocolDoc, SourceCommit: recordedProtocolCommit, ConfigSHA256: recordedConfigSHA256, Command: doc, ObservedCount: 30},
 			"storage-format":      {Kind: adoption.EvidenceStorageDoc, SourceCommit: recordedPerformanceCommit, ConfigSHA256: recordedConfigSHA256, Command: doc, ObservedCount: 11},
 		},
 		Criteria: map[string]adoption.CriterionAuthority{},

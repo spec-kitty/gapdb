@@ -17,7 +17,7 @@ const maxAssertionDiagnosticBytes = 4 << 10
 // validateClientResponse is the deletion-sensitive protocol-v1 validation
 // boundary. Public result decoding is deliberately performed only after this
 // function has accepted every nested field and spelling.
-func validateClientResponse(payload []byte) error {
+func validateClientResponse(payload []byte, limits Limits) error {
 	var envelope struct {
 		SchemaVersion        *uint64         `json:"schema_version"`
 		OK                   *bool           `json:"ok"`
@@ -72,7 +72,7 @@ func validateClientResponse(payload []byte) error {
 			if !has("result") {
 				return errors.New("successful unary result is required")
 			}
-			return validateClientResult(envelope.Operation, envelope.Result)
+			return validateClientResult(envelope.Operation, envelope.Result, limits)
 		}
 		if has("result") {
 			return errors.New("failed unary result must be omitted")
@@ -111,10 +111,11 @@ func validateClientResponse(payload []byte) error {
 	return nil
 }
 
-func validateClientResult(operation string, raw []byte) error {
+func validateClientResult(operation string, raw []byte, limits Limits) error {
 	required := map[string][]string{
-		"get": {"record"},
-		"put": {"revision", "ack", "durable_through_revision"}, "put_if_absent": {"revision", "ack", "durable_through_revision"}, "compare_and_swap": {"revision", "ack", "durable_through_revision"}, "delete_if_revision": {"revision", "ack", "durable_through_revision"}, "atomic_batch": {"revision", "ack", "durable_through_revision", "mutation_count"},
+		"get":      {"record"},
+		"get_many": {"observed_revision", "as_of", "entries"},
+		"put":      {"revision", "ack", "durable_through_revision"}, "put_if_absent": {"revision", "ack", "durable_through_revision"}, "compare_and_swap": {"revision", "ack", "durable_through_revision"}, "delete_if_revision": {"revision", "ack", "durable_through_revision"}, "atomic_batch": {"revision", "ack", "durable_through_revision", "mutation_count"},
 		"scan_prefix":     {"observed_revision", "as_of", "records", "truncated"},
 		"status":          {"lifecycle", "database_id", "current_revision", "durable_through_revision", "reserved_revision_end", "snapshot_revision", "active_wal_start", "earliest_watch_revision", "record_count", "watch_count", "queue_depth", "active_clients", "limits", "owner_pid", "owner_started_at", "snapshot_in_progress", "backup_in_progress"},
 		"health":          {"lifecycle", "healthy", "failing_subsystems", "safe_actions"},
@@ -147,6 +148,47 @@ func validateClientResult(operation string, raw []byte) error {
 		destination = &struct {
 			Record clientWireRecord `json:"record"`
 		}{}
+	case "get_many":
+		var value struct {
+			ObservedRevision Revision         `json:"observed_revision"`
+			AsOf             clientUTCInstant `json:"as_of"`
+			Entries          []struct {
+				Key    string            `json:"key"`
+				Found  *bool             `json:"found"`
+				Record *clientWireRecord `json:"record,omitempty"`
+			} `json:"entries"`
+		}
+		if err := clientDecodeStrict(raw, &value); err != nil {
+			return err
+		}
+		if len(value.Entries) == 0 {
+			return errors.New("read-many entries are required")
+		}
+		result := ReadManyResult{ObservedRevision: value.ObservedRevision, AsOf: time.Time(value.AsOf), Entries: make([]ReadManyEntry, len(value.Entries))}
+		seen := make(map[string]struct{}, len(value.Entries))
+		for index, entry := range value.Entries {
+			if entry.Key == "" || entry.Found == nil || *entry.Found != (entry.Record != nil) {
+				return errors.New("read-many entry presence is invalid")
+			}
+			if _, duplicate := seen[entry.Key]; duplicate {
+				return errors.New("read-many entry keys are not unique")
+			}
+			seen[entry.Key] = struct{}{}
+			if entry.Record != nil {
+				if err := entry.Record.validate(); err != nil {
+					return err
+				}
+				if entry.Record.Key != entry.Key {
+					return errors.New("read-many record does not match entry key")
+				}
+			}
+			result.Entries[index] = ReadManyEntry{Key: entry.Key, Found: *entry.Found}
+			if entry.Record != nil {
+				record := Record{Key: entry.Record.Key, Value: append([]byte(nil), entry.Record.Value...), Revision: entry.Record.Revision, ExpiresAt: entry.Record.ExpiresAt.timePointer()}
+				result.Entries[index].Record = &record
+			}
+		}
+		return ValidateReadManyResult(result, limits)
 	case "put", "put_if_absent", "compare_and_swap", "delete_if_revision", "atomic_batch":
 		destination = &MutationResult{}
 	case "scan_prefix":
@@ -282,6 +324,14 @@ func (value *clientBase64) UnmarshalJSON(encoded []byte) error {
 
 type clientUTCInstant time.Time
 
+func (value *clientUTCInstant) timePointer() *time.Time {
+	if value == nil {
+		return nil
+	}
+	result := time.Time(*value).UTC()
+	return &result
+}
+
 func (value *clientUTCInstant) UnmarshalJSON(encoded []byte) error {
 	var text string
 	if err := json.Unmarshal(encoded, &text); err != nil {
@@ -365,7 +415,7 @@ func validateClientEvent(raw []byte) error {
 
 func clientOperation(operation string) bool {
 	switch operation {
-	case "get", "put", "put_if_absent", "compare_and_swap", "delete_if_revision", "atomic_batch", "scan_prefix", "watch", "status", "health", "stats", "describe_config", "verify", "create_snapshot", "compact", "backup", "offline_inspect", "offline_verify", "offline_recover_propose", "offline_recover_apply":
+	case "get", "get_many", "put", "put_if_absent", "compare_and_swap", "delete_if_revision", "atomic_batch", "scan_prefix", "watch", "status", "health", "stats", "describe_config", "verify", "create_snapshot", "compact", "backup", "offline_inspect", "offline_verify", "offline_recover_propose", "offline_recover_apply":
 		return true
 	default:
 		return false

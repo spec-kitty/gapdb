@@ -49,6 +49,11 @@ func TestLimitsFailClosed(t *testing.T) {
 	}{
 		{"zero key", func(v *gapdb.Limits) { v.MaxKeyBytes = 0 }},
 		{"negative value", func(v *gapdb.Limits) { v.MaxValueBytes = -1 }},
+		{"frame below correlated-error minimum", func(v *gapdb.Limits) {
+			v.MaxFrameBytes = gapdb.MinimumMaxFrameBytes - 1
+			v.MaxBatchBytes = v.MaxFrameBytes
+			v.MaxScanBytes = v.MaxFrameBytes
+		}},
 		{"frame above ceiling", func(v *gapdb.Limits) { v.MaxFrameBytes = gapdb.HardMaxFrameBytes + 1 }},
 		{"batch above frame", func(v *gapdb.Limits) { v.MaxBatchBytes = v.MaxFrameBytes + 1 }},
 		{"scan above frame", func(v *gapdb.Limits) { v.MaxScanBytes = v.MaxFrameBytes + 1 }},
@@ -967,6 +972,65 @@ func (w *shortWriter) Write(p []byte) (int, error) {
 type shortReader struct {
 	r   io.Reader
 	max int
+}
+
+func TestReadManyStrictOrderedWireContract(t *testing.T) {
+	request := Request{SchemaVersion: SchemaVersion, RequestID: "many-1", Operation: OperationGetMany, Arguments: GetManyArguments{Keys: []string{"missing", "present"}}}
+	payload, err := EncodeRequest(request, gapdb.DefaultOptions().Limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeRequest(payload, gapdb.DefaultOptions().Limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arguments, ok := decoded.Arguments.(GetManyArguments)
+	if !ok || len(arguments.Keys) != 2 || arguments.Keys[0] != "missing" || arguments.Keys[1] != "present" {
+		t.Fatalf("arguments = %#v", decoded.Arguments)
+	}
+
+	now := time.Date(2026, 9, 7, 17, 0, 0, 0, time.UTC)
+	record := gapdb.NewRecord("present", []byte("value"), 7, nil)
+	response := Response{SchemaVersion: SchemaVersion, OK: true, RequestID: "many-1", DatabaseID: "db", Operation: OperationGetMany, Result: gapdb.ReadManyResult{
+		ObservedRevision: 7, AsOf: now, Entries: []gapdb.ReadManyEntry{{Key: "missing"}, {Key: "present", Found: true, Record: &record}},
+	}}
+	encoded, err := EncodeResponse(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := DecodeResponse(encoded, gapdb.DefaultMaxFrameBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, ok := parsed.Result.(gapdb.ReadManyResult)
+	if !ok || len(result.Entries) != 2 || result.Entries[0].Found || !result.Entries[1].Found || result.Entries[1].Record == nil || string(result.Entries[1].Record.Value) != "value" {
+		t.Fatalf("result = %#v", parsed.Result)
+	}
+
+	for _, mutant := range [][]byte{
+		[]byte(`{"schema_version":1,"operation":"get_many","arguments":{"keys":[]}}`),
+		[]byte(`{"schema_version":1,"operation":"get_many","arguments":{"keys":["a","a"]}}`),
+		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":0,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"missing"}]}}`),
+		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":0,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"missing","found":false,"record":{"key":"missing","value_base64":"","revision":1}}]}}`),
+		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":1,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"present","found":true,"record":{"key":"present","value_base64":"","revision":2}}]}}`),
+		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":1,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"present","found":true,"record":{"key":"present","value_base64":"","revision":1,"expires_at":"2026-09-07T17:00:00Z"}}]}}`),
+		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":0,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"` + strings.Repeat("k", gapdb.HardMaxKeyBytes+1) + `","found":false}]}}`),
+	} {
+		if bytes.Contains(mutant, []byte(`"arguments"`)) {
+			if _, err := DecodeRequest(mutant, gapdb.DefaultOptions().Limits); err == nil {
+				t.Fatalf("accepted request mutant %s", mutant)
+			}
+		} else if _, err := DecodeResponse(mutant, gapdb.DefaultMaxFrameBytes); err == nil {
+			t.Fatalf("accepted response mutant %s", mutant)
+		}
+	}
+	entries := make([]gapdb.ReadManyEntry, gapdb.HardMaxBatchOperations+1)
+	for index := range entries {
+		entries[index] = gapdb.ReadManyEntry{Key: "key-" + strconv.Itoa(index)}
+	}
+	if _, err := EncodeResponse(Response{SchemaVersion: SchemaVersion, OK: true, DatabaseID: "db", Operation: OperationGetMany, Result: gapdb.ReadManyResult{AsOf: now, Entries: entries}}); err == nil {
+		t.Fatal("accepted read-many response above the hard entry limit")
+	}
 }
 
 func (r *shortReader) Read(p []byte) (int, error) {

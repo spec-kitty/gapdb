@@ -185,6 +185,40 @@ func (state *DatabaseState) Get(key string) (gapdb.Record, error) {
 	return record.Clone(), nil
 }
 
+func (state *DatabaseState) ReadMany(keys []string) (gapdb.ReadManyResult, error) {
+	if len(keys) == 0 || len(keys) > state.limits.MaxBatchOperations {
+		return gapdb.ReadManyResult{}, invalidField("keys", "must contain between 1 and the configured batch-operation limit")
+	}
+	seen := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		if err := validateKey(key, state.limits); err != nil {
+			return gapdb.ReadManyResult{}, err
+		}
+		if _, duplicate := seen[key]; duplicate {
+			return gapdb.ReadManyResult{}, &gapdb.Error{Code: gapdb.CodeDuplicateKey, Message: "Exact read keys must be unique.", Retry: gapdb.RetryNever, Key: key, SafeActions: []gapdb.SafeAction{gapdb.ActionDeduplicateBatch, gapdb.ActionAbort}}
+		}
+		seen[key] = struct{}{}
+	}
+
+	state.mu.RLock()
+	defer state.mu.RUnlock()
+	asOf := state.clock.Now()
+	result := gapdb.ReadManyResult{ObservedRevision: state.current, AsOf: asOf.UTC(), Entries: make([]gapdb.ReadManyEntry, 0, len(keys))}
+	for _, key := range keys {
+		record, exists := state.records[key]
+		if !exists || recordExpired(record, asOf) {
+			result.Entries = append(result.Entries, gapdb.ReadManyEntry{Key: key})
+			continue
+		}
+		owned := record.Clone()
+		result.Entries = append(result.Entries, gapdb.ReadManyEntry{Key: key, Found: true, Record: &owned})
+	}
+	if err := gapdb.ValidateReadManyResult(result, state.limits); err != nil {
+		return gapdb.ReadManyResult{}, err
+	}
+	return result, nil
+}
+
 func (state *DatabaseState) CurrentRevision() gapdb.Revision {
 	state.mu.RLock()
 	defer state.mu.RUnlock()

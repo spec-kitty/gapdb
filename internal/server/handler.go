@@ -34,6 +34,10 @@ func (server *Server) dispatch(request protocol.Request) protocol.Response {
 		var record gapdb.Record
 		record, err = server.runtime.State().Get(arguments.Key)
 		result = protocol.GetResult{Record: record}
+	case protocol.GetManyArguments:
+		var records gapdb.ReadManyResult
+		records, err = server.runtime.State().ReadMany(arguments.Keys)
+		result = records
 	case protocol.PutArguments:
 		if request.Operation == protocol.OperationPut {
 			value, callErr := server.runtime.State().Put(ctx, arguments.Key, arguments.Value, arguments.ExpiresAt, arguments.Ack)

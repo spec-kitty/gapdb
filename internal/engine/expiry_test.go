@@ -177,9 +177,9 @@ func TestNewRejectsRecoveredExpiryThatCannotFitCleanupFrame(t *testing.T) {
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	expires := now.Add(time.Minute)
 	limits := gapdb.DefaultOptions().Limits
-	limits.MaxFrameBytes = 52
+	limits.MaxFrameBytes = gapdb.MinimumMaxFrameBytes
 	limits.MaxBatchBytes = 52
-	limits.MaxScanBytes = 52
+	limits.MaxScanBytes = gapdb.MinimumMaxFrameBytes
 	timer := newManualExpiryTimer()
 	_, err := New(Config{
 		Limits:           limits,

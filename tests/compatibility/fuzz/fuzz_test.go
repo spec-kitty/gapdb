@@ -28,11 +28,11 @@ func fuzzLimits() gapdb.Limits {
 	limits := gapdb.DefaultOptions().Limits
 	limits.MaxKeyBytes = 32
 	limits.MaxValueBytes = 64
-	limits.MaxFrameBytes = 1024
-	limits.MaxBatchBytes = 1024
+	limits.MaxFrameBytes = gapdb.MinimumMaxFrameBytes
+	limits.MaxBatchBytes = gapdb.MinimumMaxFrameBytes
 	limits.MaxBatchOperations = 8
 	limits.MaxScanRecords = 8
-	limits.MaxScanBytes = 1024
+	limits.MaxScanBytes = gapdb.MinimumMaxFrameBytes
 	limits.WatchBufferEvents = 4
 	limits.MaxHistoryEvents = 8
 	limits.MaxHistoryBytes = 1024

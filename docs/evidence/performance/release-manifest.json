@@ -101,15 +101,15 @@
       "id": "protocol-format",
       "kind": "protocol_doc_v1",
       "path": "docs/formats/protocol-v1.md",
-      "sha256": "cd08e19252628a1cbfe5bd43018caae86569e041dc01f9d4472dc2eae72389c2",
-      "bytes": 8447,
+      "sha256": "68c9b7f52714620d649c6e47b7c56bda10318b697ccbb5bfb88d58f01a9fd9a2",
+      "bytes": 9634,
       "status": "pass",
-      "source_commit": "3a98149c005031a77a85c42c04caae7073b80dad",
+      "source_commit": "1527eb112acf14908b46c6d84b701d4c77d2b560",
       "config_sha256": "8651e5d4d9d1d3ae8804045cda5d8fda97f3d51523a82a23e4c9dfe923166fc4",
       "command": "go test ./tests/adoption -run TestLivingDocumentationLinksAndLockedSurface -count=1",
-      "observed_count": 29,
-      "minimum_count": 29,
-      "maximum_count": 29
+      "observed_count": 30,
+      "minimum_count": 30,
+      "maximum_count": 30
     },
     {
       "id": "storage-format",

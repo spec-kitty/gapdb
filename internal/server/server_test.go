@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -43,9 +44,83 @@ func TestOpenServesPublicClientAndOwnsSocket(t *testing.T) {
 	if err != nil || string(record.Value) != "\x00\x01\x02" || record.Revision != put.Revision {
 		t.Fatalf("Get = %+v, %v", record, err)
 	}
+	many, err := client.ReadMany(t.Context(), []string{"missing", "key"})
+	if err != nil || len(many.Entries) != 2 || many.Entries[0].Found || !many.Entries[1].Found || many.Entries[1].Record == nil || many.Entries[1].Record.Revision != put.Revision || many.ObservedRevision != put.Revision {
+		t.Fatalf("ReadMany = %+v, %v", many, err)
+	}
 
 	if _, err := server.Open(server.Config{Directory: dir, Options: gapdb.DefaultOptions(), ToolVersion: "test"}); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeOwnerExists}) {
 		t.Fatalf("second owner = %v, want OWNER_EXISTS", err)
+	}
+}
+
+func TestReusableUnaryCorrelatesConcurrentRequests(t *testing.T) {
+	dir := t.TempDir()
+	srv, err := server.Open(server.Config{Directory: dir, Options: gapdb.DefaultOptions(), ToolVersion: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = srv.Close(context.Background()) })
+	client, err := gapdb.Dial(srv.SocketPath(), gapdb.ClientOptions{Timeout: time.Second, ReuseUnaryConnection: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	for index := 0; index < 20; index++ {
+		key := fmt.Sprintf("key-%02d", index)
+		if _, err := client.Put(t.Context(), key, []byte(key), nil, gapdb.AckMemory); err != nil {
+			t.Fatal(err)
+		}
+	}
+	errorsCh := make(chan error, 20)
+	for index := 0; index < 20; index++ {
+		go func(index int) {
+			key := fmt.Sprintf("key-%02d", index)
+			record, callErr := client.Get(t.Context(), key)
+			if callErr == nil && string(record.Value) != key {
+				callErr = fmt.Errorf("Get(%s) returned %q", key, record.Value)
+			}
+			errorsCh <- callErr
+		}(index)
+	}
+	for range 20 {
+		if err := <-errorsCh; err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestReadManyOversizedCorrelatedResponseReturnsStructuredFailure(t *testing.T) {
+	options := gapdb.DefaultOptions()
+	options.Limits.MaxFrameBytes = gapdb.MinimumMaxFrameBytes
+	options.Limits.MaxBatchBytes = gapdb.MinimumMaxFrameBytes
+	options.Limits.MaxScanBytes = gapdb.MinimumMaxFrameBytes
+	dir := t.TempDir()
+	srv, err := server.Open(server.Config{Directory: dir, Options: options, ToolVersion: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = srv.Close(context.Background()) })
+	client, err := gapdb.Dial(srv.SocketPath(), gapdb.ClientOptions{Limits: options.Limits, Timeout: time.Second, ReuseUnaryConnection: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if _, err := client.Put(t.Context(), "large", make([]byte, 500), nil, gapdb.AckMemory); err != nil {
+		t.Fatal(err)
+	}
+
+	// Every byte is legal under the 256-byte request-ID contract but expands
+	// to six bytes when JSON encoded. The result alone fits MaxScanBytes; the
+	// fully correlated response does not fit MaxFrameBytes.
+	requestID := strings.Repeat("\x00", 256)
+	result, err := client.ReadMany(gapdb.WithRequestID(t.Context(), requestID), []string{"large"})
+	var oversized *gapdb.Error
+	if !errors.As(err, &oversized) || oversized.Code != gapdb.CodeFrameTooLarge || oversized.ReceivedBytes <= options.Limits.MaxFrameBytes || oversized.MaximumBytes != options.Limits.MaxFrameBytes || len(result.Entries) != 0 {
+		t.Fatalf("ReadMany oversized correlated response = %+v, %#v", result, err)
+	}
+	if _, err := client.Status(t.Context()); err != nil {
+		t.Fatalf("structured refusal poisoned reusable connection: %v", err)
 	}
 }
 
