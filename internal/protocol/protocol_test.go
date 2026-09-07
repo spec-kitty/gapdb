@@ -969,6 +969,55 @@ type shortReader struct {
 	max int
 }
 
+func TestReadManyStrictOrderedWireContract(t *testing.T) {
+	request := Request{SchemaVersion: SchemaVersion, RequestID: "many-1", Operation: OperationGetMany, Arguments: GetManyArguments{Keys: []string{"missing", "present"}}}
+	payload, err := EncodeRequest(request, gapdb.DefaultOptions().Limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeRequest(payload, gapdb.DefaultOptions().Limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arguments, ok := decoded.Arguments.(GetManyArguments)
+	if !ok || len(arguments.Keys) != 2 || arguments.Keys[0] != "missing" || arguments.Keys[1] != "present" {
+		t.Fatalf("arguments = %#v", decoded.Arguments)
+	}
+
+	now := time.Date(2026, 9, 7, 17, 0, 0, 0, time.UTC)
+	record := gapdb.NewRecord("present", []byte("value"), 7, nil)
+	response := Response{SchemaVersion: SchemaVersion, OK: true, RequestID: "many-1", DatabaseID: "db", Operation: OperationGetMany, Result: gapdb.ReadManyResult{
+		ObservedRevision: 7, AsOf: now, Entries: []gapdb.ReadManyEntry{{Key: "missing"}, {Key: "present", Found: true, Record: &record}},
+	}}
+	encoded, err := EncodeResponse(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := DecodeResponse(encoded, gapdb.DefaultMaxFrameBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, ok := parsed.Result.(gapdb.ReadManyResult)
+	if !ok || len(result.Entries) != 2 || result.Entries[0].Found || !result.Entries[1].Found || result.Entries[1].Record == nil || string(result.Entries[1].Record.Value) != "value" {
+		t.Fatalf("result = %#v", parsed.Result)
+	}
+
+	for _, mutant := range [][]byte{
+		[]byte(`{"schema_version":1,"operation":"get_many","arguments":{"keys":[]}}`),
+		[]byte(`{"schema_version":1,"operation":"get_many","arguments":{"keys":["a","a"]}}`),
+		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":0,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"missing"}]}}`),
+		[]byte(`{"schema_version":1,"ok":true,"database_id":"db","operation":"get_many","result":{"observed_revision":0,"as_of":"2026-09-07T17:00:00Z","entries":[{"key":"missing","found":false,"record":{"key":"missing","value_base64":"","revision":1}}]}}`),
+	} {
+		if bytes.Contains(mutant, []byte(`"arguments"`)) {
+			if _, err := DecodeRequest(mutant, gapdb.DefaultOptions().Limits); err == nil {
+				t.Fatalf("accepted request mutant %s", mutant)
+			}
+		} else if _, err := DecodeResponse(mutant, gapdb.DefaultMaxFrameBytes); err == nil {
+			t.Fatalf("accepted response mutant %s", mutant)
+		}
+	}
+}
+
 func (r *shortReader) Read(p []byte) (int, error) {
 	if len(p) > r.max {
 		p = p[:r.max]

@@ -43,6 +43,10 @@ func TestOpenServesPublicClientAndOwnsSocket(t *testing.T) {
 	if err != nil || string(record.Value) != "\x00\x01\x02" || record.Revision != put.Revision {
 		t.Fatalf("Get = %+v, %v", record, err)
 	}
+	many, err := client.ReadMany(t.Context(), []string{"missing", "key"})
+	if err != nil || len(many.Entries) != 2 || many.Entries[0].Found || !many.Entries[1].Found || many.Entries[1].Record == nil || many.Entries[1].Record.Revision != put.Revision || many.ObservedRevision != put.Revision {
+		t.Fatalf("ReadMany = %+v, %v", many, err)
+	}
 
 	if _, err := server.Open(server.Config{Directory: dir, Options: gapdb.DefaultOptions(), ToolVersion: "test"}); !errors.Is(err, &gapdb.Error{Code: gapdb.CodeOwnerExists}) {
 		t.Fatalf("second owner = %v, want OWNER_EXISTS", err)

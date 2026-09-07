@@ -154,6 +154,53 @@ func (c *Client) Get(ctx context.Context, key string) (Record, error) {
 	}
 	return result.Record.Clone(), nil
 }
+
+// ReadMany reads a bounded key set from one owner revision and preserves
+// request order, including an explicit entry for every absent key.
+func (c *Client) ReadMany(ctx context.Context, keys []string) (ReadManyResult, error) {
+	if err := validateManyRequest(keys, c.limits); err != nil {
+		return ReadManyResult{}, err
+	}
+	owned := append([]string(nil), keys...)
+	r, err := c.unary(ctx, "get_many", struct {
+		Keys []string `json:"keys"`
+	}{owned})
+	if err != nil {
+		return ReadManyResult{}, err
+	}
+	var result ReadManyResult
+	if err := json.Unmarshal(r.Result, &result); err != nil || len(result.Entries) != len(owned) {
+		return ReadManyResult{}, c.invalidResult("get_many", err)
+	}
+	for index, entry := range result.Entries {
+		if entry.Key != owned[index] || entry.Found != (entry.Record != nil) || entry.Found && (entry.Record.Key != entry.Key || entry.Record.Revision == 0) {
+			return ReadManyResult{}, c.invalidResult("get_many", errors.New("entries do not exactly match requested keys"))
+		}
+	}
+	return result.Clone(), nil
+}
+
+func validateManyRequest(keys []string, limits Limits) error {
+	if len(keys) == 0 || len(keys) > limits.MaxBatchOperations {
+		return invalidField("keys", "must contain between 1 and the configured batch-operation limit")
+	}
+	seen := make(map[string]struct{}, len(keys))
+	requestBytes := 0
+	for _, key := range keys {
+		if err := (Mutation{Kind: MutationPut, Key: key, Condition: Condition{Kind: ConditionAny}}).Validate(limits); err != nil {
+			return err
+		}
+		if _, duplicate := seen[key]; duplicate {
+			return &Error{Code: CodeDuplicateKey, Message: "Exact read keys must be unique.", Retry: RetryNever, Key: key, SafeActions: []SafeAction{ActionDeduplicateBatch, ActionAbort}}
+		}
+		seen[key] = struct{}{}
+		requestBytes += len(key) + 8
+		if requestBytes > limits.MaxBatchBytes {
+			return &Error{Code: CodeBatchTooLarge, Message: "Exact read request exceeds the configured byte limit.", Retry: RetryNever, ReceivedBytes: requestBytes, MaximumBytes: limits.MaxBatchBytes, SafeActions: []SafeAction{ActionSplitBatch, ActionAbort}}
+		}
+	}
+	return nil
+}
 func (c *Client) Put(ctx context.Context, key string, value []byte, expiry *time.Time, ack AckMode) (MutationResult, error) {
 	if err := NewPutMutation(key, value, Condition{Kind: ConditionAny}, expiry).Validate(c.limits); err != nil {
 		return MutationResult{}, err

@@ -24,6 +24,7 @@ type Operation string
 
 const (
 	OperationGet                   Operation = "get"
+	OperationGetMany               Operation = "get_many"
 	OperationPut                   Operation = "put"
 	OperationPutIfAbsent           Operation = "put_if_absent"
 	OperationCompareAndSwap        Operation = "compare_and_swap"
@@ -47,7 +48,7 @@ const (
 
 func (o Operation) Valid() bool {
 	switch o {
-	case OperationGet, OperationPut, OperationPutIfAbsent, OperationCompareAndSwap,
+	case OperationGet, OperationGetMany, OperationPut, OperationPutIfAbsent, OperationCompareAndSwap,
 		OperationDeleteIfRevision, OperationAtomicBatch, OperationScanPrefix,
 		OperationWatch, OperationStatus, OperationHealth, OperationStats,
 		OperationDescribeConfig, OperationVerify, OperationCreateSnapshot,
@@ -69,6 +70,10 @@ type Request struct {
 
 type GetArguments struct {
 	Key string `json:"key"`
+}
+
+type GetManyArguments struct {
+	Keys []string `json:"keys"`
 }
 
 type PutArguments struct {
@@ -200,6 +205,12 @@ type Response struct {
 
 type GetResult struct {
 	Record gapdb.Record `json:"record"`
+}
+
+type GetManyResult struct {
+	ObservedRevision gapdb.Revision        `json:"observed_revision"`
+	AsOf             time.Time             `json:"as_of"`
+	Entries          []gapdb.ReadManyEntry `json:"entries"`
 }
 
 func DecodeRequest(payload []byte, limits gapdb.Limits) (Request, error) {
@@ -490,6 +501,43 @@ func decodeResult(operation Operation, raw json.RawMessage) (any, error) {
 			return nil, err
 		}
 		return GetResult{Record: record}, nil
+	case OperationGetMany:
+		var wire struct {
+			ObservedRevision gapdb.Revision `json:"observed_revision"`
+			AsOf             UTCInstant     `json:"as_of"`
+			Entries          []struct {
+				Key    string      `json:"key"`
+				Found  *bool       `json:"found"`
+				Record *wireRecord `json:"record,omitempty"`
+			} `json:"entries"`
+		}
+		if err := decodeStrict(raw, &wire); err != nil {
+			return nil, invalidProtocol("result", err.Error(), err)
+		}
+		if len(wire.Entries) == 0 {
+			return nil, invalidProtocol("result", "must contain entries", nil)
+		}
+		result := gapdb.ReadManyResult{ObservedRevision: wire.ObservedRevision, AsOf: time.Time(wire.AsOf).UTC(), Entries: make([]gapdb.ReadManyEntry, len(wire.Entries))}
+		seen := make(map[string]struct{}, len(wire.Entries))
+		for index, encoded := range wire.Entries {
+			if encoded.Key == "" || encoded.Found == nil || *encoded.Found != (encoded.Record != nil) {
+				return nil, invalidProtocol("result.entries", "must contain a key, found flag, and matching record presence", nil)
+			}
+			if _, duplicate := seen[encoded.Key]; duplicate {
+				return nil, invalidProtocol("result.entries", "must contain unique keys", nil)
+			}
+			seen[encoded.Key] = struct{}{}
+			entry := gapdb.ReadManyEntry{Key: encoded.Key, Found: *encoded.Found}
+			if encoded.Record != nil {
+				record, err := encoded.Record.public()
+				if err != nil || record.Key != encoded.Key {
+					return nil, invalidProtocol("result.entries.record", "must be canonical and match the entry key", err)
+				}
+				entry.Record = &record
+			}
+			result.Entries[index] = entry
+		}
+		return result, nil
 	case OperationPut, OperationPutIfAbsent, OperationCompareAndSwap,
 		OperationDeleteIfRevision, OperationAtomicBatch:
 		destination = &gapdb.MutationResult{}
@@ -611,8 +659,9 @@ func decodeResult(operation Operation, raw json.RawMessage) (any, error) {
 
 func requireResultFields(operation Operation, raw []byte) error {
 	required := map[Operation][]string{
-		OperationGet: {"record"},
-		OperationPut: {"revision", "ack", "durable_through_revision"}, OperationPutIfAbsent: {"revision", "ack", "durable_through_revision"}, OperationCompareAndSwap: {"revision", "ack", "durable_through_revision"}, OperationDeleteIfRevision: {"revision", "ack", "durable_through_revision"}, OperationAtomicBatch: {"revision", "ack", "durable_through_revision", "mutation_count"},
+		OperationGet:     {"record"},
+		OperationGetMany: {"observed_revision", "as_of", "entries"},
+		OperationPut:     {"revision", "ack", "durable_through_revision"}, OperationPutIfAbsent: {"revision", "ack", "durable_through_revision"}, OperationCompareAndSwap: {"revision", "ack", "durable_through_revision"}, OperationDeleteIfRevision: {"revision", "ack", "durable_through_revision"}, OperationAtomicBatch: {"revision", "ack", "durable_through_revision", "mutation_count"},
 		OperationScanPrefix:     {"observed_revision", "as_of", "records", "truncated"},
 		OperationStatus:         {"lifecycle", "database_id", "current_revision", "durable_through_revision", "reserved_revision_end", "snapshot_revision", "active_wal_start", "earliest_watch_revision", "record_count", "watch_count", "queue_depth", "active_clients", "limits", "owner_pid", "owner_started_at", "snapshot_in_progress", "backup_in_progress"},
 		OperationHealth:         {"lifecycle", "healthy", "failing_subsystems", "safe_actions"},
@@ -1041,6 +1090,25 @@ func decodeArguments(operation Operation, raw []byte, limits gapdb.Limits) (any,
 			return nil, err
 		}
 		return value, nil
+	case OperationGetMany:
+		var value GetManyArguments
+		if err := decode(&value); err != nil {
+			return nil, err
+		}
+		if len(value.Keys) == 0 || len(value.Keys) > limits.MaxBatchOperations {
+			return nil, invalidProtocol("arguments.keys", "is outside the configured batch-operation limit", nil)
+		}
+		seen := make(map[string]struct{}, len(value.Keys))
+		for _, key := range value.Keys {
+			if err := validateMutation(gapdb.NewPutMutation(key, nil, gapdb.Condition{Kind: gapdb.ConditionAny}, nil)); err != nil {
+				return nil, err
+			}
+			if _, duplicate := seen[key]; duplicate {
+				return nil, &gapdb.Error{Code: gapdb.CodeDuplicateKey, Message: "Exact read keys must be unique.", Retry: gapdb.RetryNever, Key: key, SafeActions: []gapdb.SafeAction{gapdb.ActionDeduplicateBatch, gapdb.ActionAbort}}
+			}
+			seen[key] = struct{}{}
+		}
+		return value, nil
 	case OperationPut, OperationPutIfAbsent:
 		var value PutArguments
 		if !objectHasField(raw, "value_base64") {
@@ -1257,6 +1325,8 @@ func validateArgumentsType(operation Operation, arguments any) error {
 	switch operation {
 	case OperationGet:
 		_, valid = arguments.(GetArguments)
+	case OperationGetMany:
+		_, valid = arguments.(GetManyArguments)
 	case OperationPut, OperationPutIfAbsent:
 		_, valid = arguments.(PutArguments)
 	case OperationCompareAndSwap:
@@ -1535,6 +1605,11 @@ func normalizeResult(result any) any {
 	case GetResult:
 		value.Record = value.Record.Clone()
 		return value
+	case GetManyResult:
+		value.Entries = gapdb.ReadManyResult{Entries: value.Entries}.Clone().Entries
+		return value
+	case gapdb.ReadManyResult:
+		return value.Clone()
 	case gapdb.Record:
 		return value.Clone()
 	case gapdb.ScanPage:

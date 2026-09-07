@@ -335,6 +335,36 @@ func (r Record) Clone() Record {
 	return r
 }
 
+type ReadManyEntry struct {
+	Key    string  `json:"key"`
+	Found  bool    `json:"found"`
+	Record *Record `json:"record,omitempty"`
+}
+
+func (e ReadManyEntry) Clone() ReadManyEntry {
+	if e.Record != nil {
+		record := e.Record.Clone()
+		e.Record = &record
+	}
+	return e
+}
+
+// ReadManyResult is one atomic, ordered observation of an exact key set.
+// Entries appear in request order, including explicit not-found entries.
+type ReadManyResult struct {
+	ObservedRevision Revision        `json:"observed_revision"`
+	AsOf             time.Time       `json:"as_of"`
+	Entries          []ReadManyEntry `json:"entries"`
+}
+
+func (r ReadManyResult) Clone() ReadManyResult {
+	r.Entries = append([]ReadManyEntry(nil), r.Entries...)
+	for index := range r.Entries {
+		r.Entries[index] = r.Entries[index].Clone()
+	}
+	return r
+}
+
 type Condition struct {
 	Kind             ConditionKind `json:"kind"`
 	ExpectedRevision Revision      `json:"expected_revision,omitempty"`
