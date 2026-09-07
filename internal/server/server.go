@@ -287,19 +287,39 @@ func (server *Server) writeResponse(conn net.Conn, response protocol.Response) e
 	if server.write > 0 {
 		_ = conn.SetWriteDeadline(time.Now().Add(server.write))
 	}
-	payload, err := protocol.EncodeResponse(response)
+	payload, err := server.encodeResponseForFrame(response)
 	if err != nil {
 		return err
 	}
-	if len(payload) > server.limits.MaxFrameBytes {
+	if err := faultfs.Checkpoint(server.fs, faultfs.PointResponsePublish, faultfs.Before); err != nil {
+		return err
+	}
+	if err := protocol.WriteFrame(conn, payload, server.limits.MaxFrameBytes); err != nil {
+		return err
+	}
+	return faultfs.Checkpoint(server.fs, faultfs.PointResponsePublish, faultfs.After)
+}
+
+func (server *Server) encodeResponseForFrame(response protocol.Response) ([]byte, error) {
+	payload, err := protocol.EncodeResponse(response)
+	receivedBytes := len(payload)
+	if err != nil {
+		var oversized *gapdb.Error
+		if !errors.As(err, &oversized) || oversized.Code != gapdb.CodeFrameTooLarge {
+			return nil, err
+		}
+		receivedBytes = oversized.ReceivedBytes
+	}
+	if err != nil || receivedBytes > server.limits.MaxFrameBytes {
 		// Frame admission belongs at the fully correlated wire boundary. A
 		// result-only estimate cannot safely account for JSON escaping in the
-		// echoed request ID or for the rest of the response envelope.
+		// echoed request ID or for the rest of the response envelope. This path
+		// also handles EncodeResponse rejecting a payload at the hard ceiling.
 		failure := &gapdb.Error{
 			Code:          gapdb.CodeFrameTooLarge,
 			Message:       "Protocol response exceeds the configured frame limit.",
 			Retry:         gapdb.RetryNever,
-			ReceivedBytes: len(payload),
+			ReceivedBytes: receivedBytes,
 			MaximumBytes:  server.limits.MaxFrameBytes,
 			SafeActions:   []gapdb.SafeAction{gapdb.ActionReduceRequest, gapdb.ActionAbort},
 		}
@@ -312,19 +332,13 @@ func (server *Server) writeResponse(conn net.Conn, response protocol.Response) e
 			Error:         failure,
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if len(payload) > server.limits.MaxFrameBytes {
-			return failure
+			return nil, failure
 		}
 	}
-	if err := faultfs.Checkpoint(server.fs, faultfs.PointResponsePublish, faultfs.Before); err != nil {
-		return err
-	}
-	if err := protocol.WriteFrame(conn, payload, server.limits.MaxFrameBytes); err != nil {
-		return err
-	}
-	return faultfs.Checkpoint(server.fs, faultfs.PointResponsePublish, faultfs.After)
+	return payload, nil
 }
 
 func (server *Server) writeFailure(conn net.Conn, operation protocol.Operation, requestID string, err error) error {

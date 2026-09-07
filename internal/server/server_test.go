@@ -92,9 +92,9 @@ func TestReusableUnaryCorrelatesConcurrentRequests(t *testing.T) {
 
 func TestReadManyOversizedCorrelatedResponseReturnsStructuredFailure(t *testing.T) {
 	options := gapdb.DefaultOptions()
-	options.Limits.MaxFrameBytes = 4096
-	options.Limits.MaxBatchBytes = 4096
-	options.Limits.MaxScanBytes = 4096
+	options.Limits.MaxFrameBytes = gapdb.MinimumMaxFrameBytes
+	options.Limits.MaxBatchBytes = gapdb.MinimumMaxFrameBytes
+	options.Limits.MaxScanBytes = gapdb.MinimumMaxFrameBytes
 	dir := t.TempDir()
 	srv, err := server.Open(server.Config{Directory: dir, Options: options, ToolVersion: "test"})
 	if err != nil {
@@ -106,7 +106,7 @@ func TestReadManyOversizedCorrelatedResponseReturnsStructuredFailure(t *testing.
 		t.Fatal(err)
 	}
 	defer client.Close()
-	if _, err := client.Put(t.Context(), "large", make([]byte, 2400), nil, gapdb.AckMemory); err != nil {
+	if _, err := client.Put(t.Context(), "large", make([]byte, 500), nil, gapdb.AckMemory); err != nil {
 		t.Fatal(err)
 	}
 

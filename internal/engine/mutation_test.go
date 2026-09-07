@@ -125,8 +125,8 @@ func TestAtomicBatchFailureRollsBackAndIdentifiesMutation(t *testing.T) {
 func TestAtomicBatchRejectsDuplicateAndEncodedSizeBeforeAllocation(t *testing.T) {
 	limits := gapdb.DefaultOptions().Limits
 	limits.MaxBatchBytes = 53
-	limits.MaxFrameBytes = 53
-	limits.MaxScanBytes = 53
+	limits.MaxFrameBytes = gapdb.MinimumMaxFrameBytes
+	limits.MaxScanBytes = gapdb.MinimumMaxFrameBytes
 	allocator := &countingAllocator{next: 1}
 	state := newTestState(t, testConfig{limits: limits, allocator: allocator})
 	t.Cleanup(func() { closeState(t, state) })

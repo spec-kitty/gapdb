@@ -3,6 +3,11 @@ package gapdb
 import "fmt"
 
 const (
+	// MinimumMaxFrameBytes is the smallest supported frame that can carry a
+	// structured protocol error correlated with a maximally escaped legal
+	// request ID. Smaller frames cannot uphold the no-silent-disconnect error
+	// contract and are therefore invalid owner/client configurations.
+	MinimumMaxFrameBytes        = 2 << 10
 	DefaultMaxKeyBytes          = 4 << 10
 	DefaultMaxValueBytes        = 8 << 20
 	DefaultMaxFrameBytes        = 16 << 20
@@ -99,6 +104,9 @@ func (o Options) Validate() error {
 		if check.value <= 0 || check.value > check.ceiling {
 			return invalidField(check.name, fmt.Sprintf("must be between 1 and %d", check.ceiling))
 		}
+	}
+	if l.MaxFrameBytes < MinimumMaxFrameBytes {
+		return invalidField("limits.max_frame_bytes", fmt.Sprintf("must be at least %d bytes so correlated protocol errors always fit", MinimumMaxFrameBytes))
 	}
 	if l.MaxBatchBytes > l.MaxFrameBytes {
 		return invalidField("limits.max_batch_bytes", "must not exceed max_frame_bytes")

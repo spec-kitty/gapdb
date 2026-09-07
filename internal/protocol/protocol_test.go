@@ -49,6 +49,11 @@ func TestLimitsFailClosed(t *testing.T) {
 	}{
 		{"zero key", func(v *gapdb.Limits) { v.MaxKeyBytes = 0 }},
 		{"negative value", func(v *gapdb.Limits) { v.MaxValueBytes = -1 }},
+		{"frame below correlated-error minimum", func(v *gapdb.Limits) {
+			v.MaxFrameBytes = gapdb.MinimumMaxFrameBytes - 1
+			v.MaxBatchBytes = v.MaxFrameBytes
+			v.MaxScanBytes = v.MaxFrameBytes
+		}},
 		{"frame above ceiling", func(v *gapdb.Limits) { v.MaxFrameBytes = gapdb.HardMaxFrameBytes + 1 }},
 		{"batch above frame", func(v *gapdb.Limits) { v.MaxBatchBytes = v.MaxFrameBytes + 1 }},
 		{"scan above frame", func(v *gapdb.Limits) { v.MaxScanBytes = v.MaxFrameBytes + 1 }},
