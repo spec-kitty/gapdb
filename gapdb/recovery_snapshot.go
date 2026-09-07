@@ -88,7 +88,7 @@ func (c *Client) ReadRecoverySnapshot(ctx context.Context, request RecoverySnaps
 	if !bytes.HasPrefix(payload, recoverySnapshotMagic[:]) {
 		return RecoverySnapshotResult{}, c.decodeRecoverySnapshotFailure(payload, req)
 	}
-	result, err := DecodeRecoverySnapshot(payload, req.RequestID, request)
+	result, err := decodeRecoverySnapshot(payload, req.RequestID, request, true)
 	if err != nil {
 		return RecoverySnapshotResult{}, c.invalidResult(req.Operation, err)
 	}
@@ -163,6 +163,13 @@ func EncodeRecoverySnapshot(result RecoverySnapshotResult, request RecoverySnaps
 
 // DecodeRecoverySnapshot strictly decodes and validates one success frame.
 func DecodeRecoverySnapshot(payload []byte, expectedRequestID string, request RecoverySnapshotRequest) (RecoverySnapshotResult, error) {
+	return decodeRecoverySnapshot(payload, expectedRequestID, request, false)
+}
+
+// decodeRecoverySnapshot may take ownership only of a private client frame.
+// The public decoder retains its defensive-copy contract for caller-owned
+// input, while the client avoids copying the full validated snapshot again.
+func decodeRecoverySnapshot(payload []byte, expectedRequestID string, request RecoverySnapshotRequest, takeOwnership bool) (RecoverySnapshotResult, error) {
 	if len(payload) < len(recoverySnapshotMagic)+sha256.Size || len(payload) > request.MaxBytes || !bytes.Equal(payload[:8], recoverySnapshotMagic[:]) {
 		return RecoverySnapshotResult{}, errors.New("recovery snapshot frame is invalid")
 	}
@@ -170,7 +177,8 @@ func DecodeRecoverySnapshot(payload []byte, expectedRequestID string, request Re
 	if !bytes.Equal(want[:], payload[len(payload)-sha256.Size:]) {
 		return RecoverySnapshotResult{}, errors.New("recovery snapshot digest differs")
 	}
-	reader := bytes.NewReader(payload[8 : len(payload)-sha256.Size])
+	body := payload[8 : len(payload)-sha256.Size]
+	reader := bytes.NewReader(body)
 	readString := func() (string, error) {
 		var size uint16
 		if err := binary.Read(reader, binary.BigEndian, &size); err != nil || size == 0 {
@@ -206,9 +214,13 @@ func DecodeRecoverySnapshot(payload []byte, expectedRequestID string, request Re
 		if err != nil || binary.Read(reader, binary.BigEndian, &recordRevision) != nil || binary.Read(reader, binary.BigEndian, &expiresNS) != nil || binary.Read(reader, binary.BigEndian, &valueSize) != nil || int(valueSize) > reader.Len() {
 			return RecoverySnapshotResult{}, errors.New("recovery snapshot record is truncated")
 		}
-		value := make([]byte, int(valueSize))
-		if _, err := io.ReadFull(reader, value); err != nil {
+		valueOffset := len(body) - reader.Len()
+		value := body[valueOffset : valueOffset+int(valueSize)]
+		if _, err := reader.Seek(int64(valueSize), io.SeekCurrent); err != nil {
 			return RecoverySnapshotResult{}, err
+		}
+		if !takeOwnership {
+			value = bytes.Clone(value)
 		}
 		if key <= previous || !bytes.HasPrefix([]byte(key), []byte(request.Prefix)) || recordRevision == 0 || recordRevision > revision {
 			return RecoverySnapshotResult{}, errors.New("recovery snapshot membership is invalid")

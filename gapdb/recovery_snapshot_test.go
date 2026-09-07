@@ -32,6 +32,15 @@ func TestRecoverySnapshotBinaryCodecRoundTripAndClosedMembership(t *testing.T) {
 			t.Fatalf("record %d differs: %+v", index, got.Records[index])
 		}
 	}
+	encodedValueOffset := bytes.Index(encoded, []byte("one"))
+	if encodedValueOffset < 0 {
+		t.Fatal("fixture value missing from frame")
+	}
+	encoded[encodedValueOffset] = 'X'
+	if string(got.Records[0].Value) != "one" {
+		t.Fatal("public decoder retained caller-owned frame bytes")
+	}
+	encoded[encodedValueOffset] = 'o'
 
 	mutants := map[string]func([]byte){
 		"digest": func(value []byte) { value[len(value)-1] ^= 1 },
