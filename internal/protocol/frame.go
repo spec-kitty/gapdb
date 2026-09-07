@@ -33,7 +33,17 @@ func ReadFrame(reader io.Reader, maximum int) ([]byte, error) {
 }
 
 func WriteFrame(writer io.Writer, payload []byte, maximum int) error {
-	if maximum <= 0 || maximum > gapdb.HardMaxFrameBytes {
+	return writeFrame(writer, payload, maximum, gapdb.HardMaxFrameBytes)
+}
+
+// WriteRecoveryFrame is reserved for the bounded binary recovery response.
+// Ordinary protocol-v1 JSON frames remain constrained by HardMaxFrameBytes.
+func WriteRecoveryFrame(writer io.Writer, payload []byte, maximum int) error {
+	return writeFrame(writer, payload, maximum, gapdb.HardMaxRecoveryBytes)
+}
+
+func writeFrame(writer io.Writer, payload []byte, maximum, ceiling int) error {
+	if maximum <= 0 || maximum > ceiling {
 		return invalidProtocol("maximum_frame_bytes", "is outside the supported range", nil)
 	}
 	if len(payload) == 0 {

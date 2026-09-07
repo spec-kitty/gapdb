@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -224,6 +225,60 @@ func (state *DatabaseState) ReadMany(keys []string) (gapdb.ReadManyResult, error
 		return gapdb.ReadManyResult{}, err
 	}
 	return result, nil
+}
+
+// ReadRecoverySnapshot owns one bounded, sorted record view under the same
+// read lock and revision. It is deliberately read-only and returns copies;
+// callers never receive the engine map or storage handles.
+func (state *DatabaseState) ReadRecoverySnapshot(request gapdb.RecoverySnapshotRequest) (gapdb.RecoverySnapshotResult, error) {
+	if err := gapdb.ValidateRecoverySnapshotRequest(request, state.limits); err != nil {
+		return gapdb.RecoverySnapshotResult{}, err
+	}
+	state.mu.RLock()
+	defer state.mu.RUnlock()
+	if request.ExpectedRevision != state.current {
+		expected := request.ExpectedRevision
+		current := state.current
+		return gapdb.RecoverySnapshotResult{}, &gapdb.Error{Code: gapdb.CodeScanStale, Message: "Recovery snapshot revision differs from the current owner revision.", Retry: gapdb.RetryAfterRescan, CursorRevision: &expected, CurrentRevision: &current, SafeActions: []gapdb.SafeAction{gapdb.ActionRestartScan, gapdb.ActionAbort}}
+	}
+	asOf := state.clock.Now().UTC()
+	start := sort.SearchStrings(state.orderedKeys, request.Prefix)
+	records := make([]gapdb.Record, 0, recoverySnapshotCapacity(request, len(state.orderedKeys)-start))
+	// The engine reserves the largest admitted request identity. The encoder
+	// later uses the exact identity, so pre-rejection never understates bytes.
+	bytesUsed := 8 + 2 + len(state.databaseID.String()) + 2 + 256 + 8 + 8 + 4 + 32
+	for index := start; index < len(state.orderedKeys); index++ {
+		key := state.orderedKeys[index]
+		if !strings.HasPrefix(key, request.Prefix) {
+			break
+		}
+		record, exists := state.records[key]
+		if !exists || recordExpired(record, asOf) {
+			continue
+		}
+		recordBytes := 4 + len(record.Key) + 8 + 8 + 4 + len(record.Value)
+		if len(records) == request.MaxRecords || recordBytes > request.MaxBytes-bytesUsed {
+			receivedBytes := request.MaxBytes + 1
+			if bytesUsed <= request.MaxBytes && recordBytes <= request.MaxBytes-bytesUsed {
+				receivedBytes = bytesUsed + recordBytes
+			}
+			return gapdb.RecoverySnapshotResult{}, &gapdb.Error{Code: gapdb.CodeFrameTooLarge, Message: "Recovery snapshot exceeds its declared bound.", Retry: gapdb.RetryNever, ReceivedBytes: receivedBytes, MaximumBytes: request.MaxBytes, SafeActions: []gapdb.SafeAction{gapdb.ActionReduceRequest, gapdb.ActionAbort}}
+		}
+		bytesUsed += recordBytes
+		records = append(records, record.Clone())
+	}
+	return gapdb.RecoverySnapshotResult{DatabaseID: state.databaseID.String(), ObservedRevision: state.current, AsOf: asOf, Records: records}, nil
+}
+
+func recoverySnapshotCapacity(request gapdb.RecoverySnapshotRequest, matching int) int {
+	const minimumIdentityBytes = 1
+	minimumHeaderBytes := 8 + 2 + minimumIdentityBytes + 2 + minimumIdentityBytes + 8 + 8 + 4 + 32
+	minimumRecordBytes := 4 + len(request.Prefix) + 8 + 8 + 4
+	byteBoundedRecords := 0
+	if request.MaxBytes > minimumHeaderBytes {
+		byteBoundedRecords = (request.MaxBytes - minimumHeaderBytes) / minimumRecordBytes
+	}
+	return min(request.MaxRecords, matching, byteBoundedRecords)
 }
 
 func (state *DatabaseState) CurrentRevision() gapdb.Revision {

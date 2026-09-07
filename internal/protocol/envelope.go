@@ -25,6 +25,7 @@ type Operation string
 const (
 	OperationGet                   Operation = "get"
 	OperationGetMany               Operation = "get_many"
+	OperationReadRecoverySnapshot  Operation = "read_recovery_snapshot"
 	OperationPut                   Operation = "put"
 	OperationPutIfAbsent           Operation = "put_if_absent"
 	OperationCompareAndSwap        Operation = "compare_and_swap"
@@ -47,7 +48,7 @@ const (
 )
 
 var allOperations = []Operation{
-	OperationGet, OperationGetMany, OperationPut, OperationPutIfAbsent,
+	OperationGet, OperationGetMany, OperationReadRecoverySnapshot, OperationPut, OperationPutIfAbsent,
 	OperationCompareAndSwap, OperationDeleteIfRevision, OperationAtomicBatch,
 	OperationScanPrefix, OperationWatch, OperationStatus, OperationHealth,
 	OperationStats, OperationDescribeConfig, OperationVerify,
@@ -83,6 +84,13 @@ type GetArguments struct {
 
 type GetManyArguments struct {
 	Keys []string `json:"keys"`
+}
+
+type RecoverySnapshotArguments struct {
+	Prefix           string         `json:"prefix"`
+	ExpectedRevision gapdb.Revision `json:"expected_revision"`
+	MaxRecords       int            `json:"max_records"`
+	MaxBytes         int            `json:"max_bytes"`
 }
 
 type PutArguments struct {
@@ -1107,6 +1115,16 @@ func decodeArguments(operation Operation, raw []byte, limits gapdb.Limits) (any,
 			return nil, err
 		}
 		return value, nil
+	case OperationReadRecoverySnapshot:
+		var value RecoverySnapshotArguments
+		if err := decode(&value); err != nil {
+			return nil, err
+		}
+		request := gapdb.RecoverySnapshotRequest{Prefix: value.Prefix, ExpectedRevision: value.ExpectedRevision, MaxRecords: value.MaxRecords, MaxBytes: value.MaxBytes}
+		if err := gapdb.ValidateRecoverySnapshotRequest(request, limits); err != nil {
+			return nil, err
+		}
+		return value, nil
 	case OperationGetMany:
 		var value GetManyArguments
 		if err := decode(&value); err != nil {
@@ -1347,6 +1365,8 @@ func validateArgumentsType(operation Operation, arguments any) error {
 		_, valid = arguments.(GetArguments)
 	case OperationGetMany:
 		_, valid = arguments.(GetManyArguments)
+	case OperationReadRecoverySnapshot:
+		_, valid = arguments.(RecoverySnapshotArguments)
 	case OperationPut, OperationPutIfAbsent:
 		_, valid = arguments.(PutArguments)
 	case OperationCompareAndSwap:

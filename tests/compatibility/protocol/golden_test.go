@@ -3,14 +3,17 @@ package protocol_test
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spec-kitty/gapdb/gapdb"
 	wire "github.com/spec-kitty/gapdb/internal/protocol"
@@ -70,12 +73,107 @@ func TestEveryOnlineOperationHasFrozenRequestAndSuccessAuthority(t *testing.T) {
 		if !operation.Valid() {
 			t.Fatalf("frozen operation %q is not valid", operation)
 		}
+		if operation == wire.OperationReadRecoverySnapshot {
+			if requests[operation] || successes[operation] {
+				t.Fatal("candidate recovery extension was folded into adopted protocol-v1 goldens")
+			}
+			continue
+		}
 		if !requests[operation] {
 			t.Errorf("operation %q has no canonical request fixture", operation)
 		}
 		if !successes[operation] {
 			t.Errorf("operation %q has no canonical success fixture", operation)
 		}
+	}
+}
+
+func TestRecoverySnapshotCandidateExtensionHasIndependentRequestAndSuccessGolden(t *testing.T) {
+	encoded, err := os.ReadFile(filepath.Join("testdata", "recovery-snapshot-extension-v1.request.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := wire.DecodeRequest(encoded, gapdb.DefaultOptions().Limits)
+	if err != nil || request.Operation != wire.OperationReadRecoverySnapshot {
+		t.Fatalf("candidate extension request=%+v err=%v", request, err)
+	}
+	if !recoverySnapshotGolden(t) {
+		t.Fatal("candidate extension success golden is absent")
+	}
+}
+
+func recoverySnapshotGolden(t *testing.T) bool {
+	t.Helper()
+	request := gapdb.RecoverySnapshotRequest{Prefix: "workflows/", ExpectedRevision: 102, MaxRecords: 1000, MaxBytes: gapdb.HardMaxRecoveryBytes}
+	expires := time.Date(2026, 8, 23, 18, 30, 0, 0, time.UTC)
+	payload, err := gapdb.EncodeRecoverySnapshot(gapdb.RecoverySnapshotResult{
+		DatabaseID:       "0198f4d4f26a7b1ca3df00c30ca93e73",
+		RequestID:        "req-recovery",
+		ObservedRevision: 102,
+		AsOf:             time.Date(2026, 8, 23, 18, 0, 0, 0, time.UTC),
+		Records:          []gapdb.Record{{Key: "workflows/123", Value: []byte{1, 2, 3}, Revision: 45, ExpiresAt: &expires}},
+	}, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprintf("%x", sha256.Sum256(payload))
+	const want = "3970dd41fcb1a3ade7147d8ef6fcbcca1279a9e5ff42c6ebf30fc019874438b4"
+	if got != want {
+		t.Fatalf("recovery binary golden digest = %s, want %s", got, want)
+	}
+	decoded, err := gapdb.DecodeRecoverySnapshot(payload, "req-recovery", request)
+	if err != nil || len(decoded.Records) != 1 || decoded.Records[0].Key != "workflows/123" {
+		t.Fatalf("recovery binary golden decode = %+v, %v", decoded, err)
+	}
+	return true
+}
+
+func TestRecoverySnapshotCandidateExtensionIsSeparateFromFrozenProtocolV1(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	frozen, err := os.ReadFile(filepath.Join(root, "docs/formats/protocol-v1.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(frozen)); got != "68c9b7f52714620d649c6e47b7c56bda10318b697ccbb5bfb88d58f01a9fd9a2" {
+		t.Fatalf("adopted protocol-v1 authority changed: %s", got)
+	}
+	extension, err := os.ReadFile(filepath.Join(root, "docs/formats/recovery-snapshot-extension-v1.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, token := range []string{"technical candidate extension", "does not amend", "read_recovery_snapshot", "GDBREC1", "one recovery snapshot construction at a time", "cannot reslice or append into an adjacent record"} {
+		if !bytes.Contains(extension, []byte(token)) {
+			t.Fatalf("candidate extension authority token %q is absent", token)
+		}
+	}
+	var evidence struct {
+		SchemaVersion  int    `json:"schema_version"`
+		ExtensionID    string `json:"extension_id"`
+		Decision       string `json:"decision"`
+		ReleaseReady   bool   `json:"release_ready"`
+		Adopted        bool   `json:"adopted"`
+		Implementation struct {
+			SourceRevision string `json:"source_revision"`
+			SourceTree     string `json:"source_tree"`
+		} `json:"implementation"`
+		Authority struct {
+			Path   string `json:"path"`
+			SHA256 string `json:"sha256"`
+			Bytes  int    `json:"bytes"`
+		} `json:"authority"`
+	}
+	encoded, err := os.ReadFile(filepath.Join(root, "docs/evidence/candidates/recovery-snapshot-extension-v1.json"))
+	if err != nil || json.Unmarshal(encoded, &evidence) != nil {
+		t.Fatalf("read candidate evidence: %v", err)
+	}
+	digest := fmt.Sprintf("%x", sha256.Sum256(extension))
+	if evidence.SchemaVersion != 1 || evidence.ExtensionID != "recovery-snapshot-extension-v1" || evidence.Decision != "technical_candidate" || evidence.ReleaseReady || evidence.Adopted ||
+		evidence.Implementation.SourceRevision != "ed1c93eda06862438ba6a9250d185ef0537978f7" || evidence.Implementation.SourceTree != "100613a601282a761fd042e742063d71bacd2b2e" ||
+		evidence.Authority.Path != "docs/formats/recovery-snapshot-extension-v1.md" || evidence.Authority.SHA256 != digest || evidence.Authority.Bytes != len(extension) {
+		t.Fatalf("candidate extension evidence is not source/document bound: %+v", evidence)
 	}
 }
 
