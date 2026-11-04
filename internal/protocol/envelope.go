@@ -1142,7 +1142,7 @@ func decodeArguments(operation Operation, raw []byte, limits gapdb.Limits) (any,
 				return nil, err
 			}
 			if _, duplicate := seen[key]; duplicate {
-				return nil, &gapdb.Error{Code: gapdb.CodeDuplicateKey, Message: "Exact read keys must be unique.", Retry: gapdb.RetryNever, Key: key, SafeActions: []gapdb.SafeAction{gapdb.ActionDeduplicateBatch, gapdb.ActionAbort}}
+				return nil, invalidProtocol("arguments.keys", "must contain unique keys", nil)
 			}
 			seen[key] = struct{}{}
 		}

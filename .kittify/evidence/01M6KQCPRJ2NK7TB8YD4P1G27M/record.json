@@ -1,0 +1,8 @@
+{
+  "event": "completed",
+  "invocation_id": "01M6KQCPRJ2NK7TB8YD4P1G27M",
+  "completed_at": "2026-11-04T16:52:41.943678+00:00",
+  "outcome": "done",
+  "closed_by": "agent",
+  "evidence_ref": "/tmp/gapdb-duplicate-repair-independent-review.md"
+}
