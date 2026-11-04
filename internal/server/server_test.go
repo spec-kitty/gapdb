@@ -1014,3 +1014,83 @@ func TestShutdownTerminatesWatchBeforeUnlinkAndReleasesOwner(t *testing.T) {
 	}
 	_ = reopened.Close(t.Context())
 }
+
+// Malformed arguments use the preparse refusal envelope, then leave the same
+// connection usable for a valid, strictly correlated request.
+func TestReadManyDuplicateWireRefusal(t *testing.T) {
+	for _, keys := range []string{`["same","same"]`, `["same","other","same"]`} {
+		t.Run(keys, func(t *testing.T) {
+			srv, err := server.Open(server.Config{Directory: t.TempDir(), Options: gapdb.DefaultOptions(), ToolVersion: "test"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = srv.Close(context.Background()) })
+			client, err := gapdb.Dial(srv.SocketPath(), gapdb.ClientOptions{Timeout: time.Second})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer client.Close()
+			put, err := client.Put(t.Context(), "same", []byte("unchanged"), nil, gapdb.AckDurable)
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, err := client.Status(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			conn, err := net.Dial("unix", srv.SocketPath())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+			if err := conn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			raw := []byte(`{"schema_version":1,"request_id":"invalid-1","operation":"get_many","arguments":{"keys":` + keys + `}}`)
+			if err := protocol.WriteFrame(conn, raw, gapdb.DefaultMaxFrameBytes); err != nil {
+				t.Fatal(err)
+			}
+			frame, err := protocol.ReadFrame(conn, gapdb.DefaultMaxFrameBytes)
+			if err != nil {
+				t.Fatalf("duplicate request did not receive a complete structured refusal: %v", err)
+			}
+			refusal, err := protocol.DecodeResponse(frame, gapdb.DefaultMaxFrameBytes)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if refusal.OK || refusal.Operation != protocol.OperationStatus || refusal.RequestID != "" || refusal.Error == nil || refusal.Error.Code != gapdb.CodeInvalidRequest || refusal.Error.Field != "arguments.keys" || refusal.DatabaseID != before.DatabaseID {
+				t.Fatalf("malformed-request refusal = %+v", refusal)
+			}
+			valid, err := protocol.EncodeRequest(protocol.Request{SchemaVersion: protocol.SchemaVersion, RequestID: "valid-after-duplicate", Operation: protocol.OperationGetMany, Arguments: protocol.GetManyArguments{Keys: []string{"missing", "same"}}}, gapdb.DefaultOptions().Limits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := protocol.WriteFrame(conn, valid, gapdb.DefaultMaxFrameBytes); err != nil {
+				t.Fatal(err)
+			}
+			frame, err = protocol.ReadFrame(conn, gapdb.DefaultMaxFrameBytes)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response, err := protocol.DecodeResponse(frame, gapdb.DefaultMaxFrameBytes)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !response.OK || response.RequestID != "valid-after-duplicate" || response.Operation != protocol.OperationGetMany {
+				t.Fatalf("valid response lost correlation: %+v", response)
+			}
+			// The public client independently verifies ordered exact-read values/revision.
+			many, err := client.ReadMany(t.Context(), []string{"missing", "same"})
+			if err != nil || len(many.Entries) != 2 || many.Entries[0].Found || !many.Entries[1].Found || many.Entries[1].Record == nil || string(many.Entries[1].Record.Value) != "unchanged" || many.Entries[1].Record.Revision != put.Revision || many.ObservedRevision != before.CurrentRevision {
+				t.Fatalf("ReadMany after refusal = %+v, %v", many, err)
+			}
+			after, err := client.Status(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if after.CurrentRevision != before.CurrentRevision || after.DatabaseID != before.DatabaseID {
+				t.Fatalf("invalid read mutated status: before=%+v after=%+v", before, after)
+			}
+		})
+	}
+}
